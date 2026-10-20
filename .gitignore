@@ -1,0 +1,8 @@
+.venv/
+config.json
+assets/luts/
+assets/sfx/
+__pycache__/
+*.pyc
+.DS_Store
+assets/vendor/

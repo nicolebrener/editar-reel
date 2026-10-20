@@ -1,0 +1,647 @@
+"""Paso 6: writes <project>/index.html (the HyperFrames composition) from the project's JSON files.
+
+    PY scripts/build.py <project> [--safe]      # --safe draws the Reels safe zone in red (for snapshots only)
+
+Inputs:  aroll.mp4, segments.json, captions.json, reel.json (optional),
+         assets/cutout.webm (needed only when a title is "behind": true)
+
+reel.json, the creative plan. Every key is optional; times are seconds on the final timeline:
+{
+  "captions": {"y": 1130, "size": 92, "emphSize": 150},
+  "autoZoom": true,                 # quick punch-in on every emphasis caption
+  "zooms":   [{"start": 3.2, "end": 5.0, "scale": 1.18, "ox": 0.5, "oy": 0.35}],
+  "flashes": [6.4],                 # white flash at these times (good on a hard topic change)
+  "music":   {"src": "assets/music.mp3", "volume": 0.08},
+  "inserts": [
+    {"type": "title",    "text": "INVERSIÓN CREATIVA", "start": 4.1, "end": 6.0, "behind": true, "color": 0},
+    {"type": "broll",    "src": "assets/x.mp4", "start": 7, "end": 9.5, "mode": "full", "mediaStart": 0},
+    {"type": "image",    "src": "assets/y.png", "start": 10, "end": 12, "mode": "card", "y": 260, "w": 620, "rot": -4},
+    {"type": "image",    "src": "assets/z.png", "start": 12, "end": 13, "mode": "sticker", "x": 760, "y": 900, "w": 300},
+    {"type": "scribble", "text": "chef kiss", "start": 14, "end": 15.5, "x": 120, "y": 420, "rot": -8},
+    {"type": "profile",  "start": 20, "end": 23.5, "followers": "12,4 mil", "posts": "210"},
+    {"type": "webm",     "src": "assets/insert.webm", "start": 16, "end": 19, "x": 90, "y": 260, "w": 900}
+  ],
+  "sfx": {"gain": 1.0}              # 0 turns all sound effects off
+}
+colors: an integer picks config colors.accents[n]; a "#hex" string is used as is.
+"""
+import glob
+import hashlib
+import html
+import json
+import os
+import shutil
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
+W, H, SAFE = common.W, common.H, common.SAFE
+SFX_BASE = {'pop': 0.32, 'click': 0.45, 'ding': 0.22, 'rise': 0.25, 'bass': 0.4, 'whoosh': 0.3}
+
+
+_SFX_LEN = {}
+
+
+def sfx_length(name):
+    if name not in _SFX_LEN:
+        p = os.path.join(common.SKILL_DIR, 'assets', 'sfx', name + '.mp3')
+        _SFX_LEN[name] = float(common.ffprobe(p)['format']['duration'])
+    return _SFX_LEN[name]
+
+
+def esc(s):
+    return html.escape(str(s), quote=True)
+
+
+def color(cfg, c, default=None):
+    acc = cfg['colors']['accents']
+    if c is None:
+        return default or acc[0]
+    if isinstance(c, int):
+        return acc[c % len(acc)]
+    return c
+
+
+def clipped_cutout(project, clips):
+    """Copy of cutout.webm where everything above y is transparent during each (start, end, y) window.
+
+    Done with ffmpeg, not CSS: HyperFrames composites video frames itself and ignores clip-path."""
+    src = os.path.join(project, 'assets', 'cutout.webm')
+    if not clips:
+        return 'assets/cutout.webm'
+    key = hashlib.md5(json.dumps([os.path.getmtime(src), clips]).encode()).hexdigest()[:8]
+    name = f'assets/cutout-{key}.webm'
+    out = os.path.join(project, name)
+    if not os.path.exists(out):
+        for old in glob.glob(os.path.join(project, 'assets', 'cutout-*.webm')):
+            os.remove(old)
+        boxes = ','.join(f"drawbox=x=0:y=0:w=iw:h={y}:color=black@0:t=fill:replace=1:"
+                         f"enable='between(t,{s:.3f},{e:.3f})'" for s, e, y in clips)
+        common.say('preparando el recorte para los títulos detrás de la cabeza (~1 min)')
+        common.run(['ffmpeg', '-v', 'error', '-y', '-c:v', 'libvpx-vp9', '-i', src, '-vf',
+                    f'format=yuva420p,{boxes}', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-b:v', '0',
+                    '-crf', '28', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '4', '-an', out])
+    return name
+
+
+def media_size(path):
+    try:
+        info = common.ffprobe(path)
+        v = next(s for s in info['streams'] if s['codec_type'] == 'video')
+        return int(v['width']), int(v['height'])
+    except Exception:  # noqa: BLE001
+        return 1080, 1080
+
+
+def fit_size(text, base, max_w=W - 2 * 60, ratio=0.6):
+    """Font size so the longest word fits in max_w (Cal Sans averages ~0.6 em per letter)."""
+    longest = max((len(w) for w in text.split()), default=1)
+    return int(min(base, max_w / (longest * ratio)))
+
+
+class Comp:
+    def __init__(self, cfg, project, safe):
+        self.cfg, self.project, self.safe = cfg, project, safe
+        self.css, self.layers, self.tl, self.audio = [], {}, [], []
+        self.n = 0
+        self.clips = []   # (start, end, y): cutout transparent above y during that window
+
+    def uid(self, p):
+        self.n += 1
+        return f'{p}{self.n}'
+
+    def add(self, z, markup):
+        self.layers.setdefault(z, []).append(markup)
+
+    def anim(self, js):
+        self.tl.append(js)
+
+    def sfx(self, name, t, gain=1.0):
+        g = self.cfg.get('_sfx_gain', 1.0) * gain
+        if not name or g <= 0 or t < 0:
+            return
+        i = self.uid('sfx')
+        d = sfx_length(name)
+        self.audio.append(f'<audio id="{i}" src="assets/sfx/{name}.mp3" data-start="{t:.3f}" '
+                          f'data-duration="{d:.3f}" data-track-index="{100 + len(self.audio)}" '
+                          f'data-volume="{SFX_BASE.get(name, .3) * g:.3f}"></audio>')
+
+
+# ---------------------------------------------------------------- captions
+def build_captions(c, caps, opts):
+    cfg = c.cfg
+    y0 = opts.get('y', 1240)
+    # "clean": white Inter ExtraBold in lowercase, one emphasis colour in heavy italic, soft rise instead of a pop
+    clean = opts.get('style') == 'clean'
+    size = opts.get('size', 80 if clean else 92)
+    emph_size = opts.get('emphSize', 130 if clean else 150)
+    for k, g in enumerate(caps):
+        gid = f'cap-{esc(g["id"])}'
+        end = g['end']
+        if k + 1 < len(caps):   # never two captions on screen at once (hand edits can leave ends overlapping)
+            end = min(end, caps[k + 1]['start'] - 1 / common.FPS)
+        dur = max(0.1, end - g['start'])
+        is_emph = bool(g.get('emph'))
+        text = ' '.join(w['t'] for w in g['words'])
+        if clean:
+            build_clean_caption(c, g, gid, dur, is_emph, text, opts, y0, size, emph_size)
+            continue
+        if is_emph:
+            col = color(cfg, g['emph'].get('color'))
+            # capitals run wider (~0.74 em) and the group tilts and grows 6 %: keep it inside the safe zone
+            fs = fit_size(text.upper(), emph_size, max_w=W - 2 * 100, ratio=0.74)
+            y = g.get('y') or (y0 - 30)
+            words = ''.join(f'<span class="w e" style="color:{col};font-size:{fs}px">{esc(w["t"].upper())}</span>'
+                            for w in g['words'])
+        else:
+            fs = fit_size(text, size)
+            y = g.get('y') or y0
+            words = ''.join(f'<span class="w" style="font-size:{fs}px">{esc(w["t"])}</span>' for w in g['words'])
+        c.add(8, f'<div id="{gid}" class="clip cap" data-start="{g["start"]:.3f}" data-duration="{dur:.3f}" '
+                 f'data-track-index="8" style="top:{y}px"><div class="cap-in">{words}</div></div>')
+        rot = ((k * 37) % 9 - 4) if is_emph else 0     # deterministic small tilt per emphasis
+        for i, w in enumerate(g['words']):
+            sel = f'#{gid} .w:nth-child({i + 1})'
+            t = max(g['start'], min(w['s'], g['end'] - 0.1))
+            if is_emph:
+                c.anim(f'tl.fromTo("{sel}",{{scale:0.25,rotation:{rot - 10},opacity:0}},'
+                       f'{{scale:1,rotation:{rot},opacity:1,duration:0.24,ease:"back.out(3)"}},{t:.3f});')
+            else:
+                c.anim(f'tl.fromTo("{sel}",{{scale:0.6,y:24,opacity:0}},'
+                       f'{{scale:1,y:0,opacity:1,duration:0.13,ease:"back.out(2.4)"}},{t:.3f});')
+        if is_emph:
+            c.anim(f'tl.to("#{gid} .cap-in",{{scale:1.06,duration:{max(0.2, dur - 0.25):.3f},ease:"sine.inOut"}},'
+                   f'{g["start"] + 0.24:.3f});')
+            c.sfx('pop', g['start'])
+
+
+def build_clean_caption(c, g, gid, dur, is_emph, text, opts, y0, size, emph_size):
+    if is_emph:
+        col = opts.get('emphColor', '#FFE14D')
+        fs = fit_size(text.upper(), emph_size, max_w=W - 2 * 100, ratio=0.74)
+        words = ''.join(f'<span class="w ce ee" style="color:{col};font-size:{fs}px">{esc(w["t"].upper())}</span>'
+                        for w in g['words'])
+    else:
+        fs = fit_size(text, size, ratio=0.62)
+        words = ''.join(f'<span class="w ce" style="font-size:{fs}px">{esc(w["t"].lower())}</span>'
+                        for w in g['words'])
+    y = g.get('y') or y0
+    c.add(8, f'<div id="{gid}" class="clip cap" data-start="{g["start"]:.3f}" data-duration="{dur:.3f}" '
+             f'data-track-index="8" style="top:{y}px"><div class="cap-in">{words}</div></div>')
+    for i, w in enumerate(g['words']):
+        sel = f'#{gid} .w:nth-child({i + 1})'
+        t = max(g['start'], min(w['s'], g['end'] - 0.1))
+        if is_emph:
+            c.anim(f'tl.fromTo("{sel}",{{scale:0.82,opacity:0}},'
+                   f'{{scale:1,opacity:1,duration:0.2,ease:"power3.out"}},{t:.3f});')
+        else:
+            c.anim(f'tl.fromTo("{sel}",{{y:14,opacity:0}},{{y:0,opacity:1,duration:0.12,ease:"power2.out"}},{t:.3f});')
+    if is_emph and opts.get('emphSfx'):
+        c.sfx(opts['emphSfx'], g['start'], 0.6)
+
+
+# ---------------------------------------------------------------- inserts
+IG_ICON = ('<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">'
+           '<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4.2"/>'
+           '<circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/></svg>')
+
+
+def ins_number(c, it):
+    """A huge outlined numeral over the speaker ("1", "2", "3"): marks each point of a list."""
+    i = c.uid('num')
+    dur = it['end'] - it['start']
+    fs = it.get('size', 760)
+    c.add(6, f'<div id="{i}" class="clip num" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+             f'data-track-index="6" style="left:{it.get("x", 0)}px;top:{it.get("y", 560)}px;font-size:{fs}px;'
+             f'-webkit-text-stroke:{it.get("stroke", 16)}px {it.get("color", "#FFFFFF")}">'
+             f'<div class="num-in">{esc(it["text"])}</div></div>')
+    c.anim(f'tl.fromTo("#{i} .num-in",{{scale:1.25,opacity:0}},{{scale:1,opacity:1,duration:0.3,ease:"power3.out"}},'
+           f'{it["start"]:.3f});')
+    c.anim(f'tl.to("#{i} .num-in",{{opacity:0,scale:0.95,duration:0.2}},{it["end"] - 0.2:.3f});'
+           f'tl.set("#{i} .num-in",{{opacity:0}},{it["end"]:.3f});')
+    c.sfx(it.get('sfx', 'whoosh'), it['start'] - 0.05, 0.6)
+
+
+def ins_handle(c, it):
+    """Small Instagram glyph + @handle, like a watermark; `spots` moves it around the frame over time."""
+    handle = '@' + c.cfg.get('instagram', '').upper()
+    spots = it.get('spots') or [{'t': it['start'], 'x': 830, 'y': 300}]
+    for k, sp in enumerate(spots):
+        s = sp['t']
+        e = spots[k + 1]['t'] if k + 1 < len(spots) else it['end']
+        i = c.uid('ig')
+        c.add(7, f'<div id="{i}" class="clip igh" data-start="{s:.3f}" data-duration="{e - s:.3f}" '
+                 f'data-track-index="7" style="left:{sp["x"]}px;top:{sp["y"]}px">'
+                 f'<div class="igh-in">{IG_ICON}<span>{esc(handle)}</span></div></div>')
+        c.anim(f'tl.fromTo("#{i} .igh-in",{{opacity:0}},{{opacity:0.9,duration:0.25}},{s:.3f});')
+
+
+def ins_endcard(c, it):
+    """Closing frame: the video darkens and the Instagram logo + handle fade in, centred."""
+    i = c.uid('end')
+    dur = it['end'] - it['start']
+    c.add(7, f'<div id="{i}" class="clip endc" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+             f'data-track-index="7"><div class="endc-bg"></div><div class="endc-in">'
+             f'<div class="endc-logo">{IG_ICON}</div><div class="endc-h">@{esc(c.cfg.get("instagram", "").upper())}'
+             f'</div></div></div>')
+    t0 = it['start']
+    c.anim(f'tl.fromTo("#{i} .endc-bg",{{opacity:0}},{{opacity:1,duration:0.4,ease:"power1.out"}},{t0:.3f});')
+    c.anim(f'tl.fromTo("#{i} .endc-in",{{y:30,opacity:0}},{{y:0,opacity:1,duration:0.4,ease:"power3.out"}},'
+           f'{t0 + 0.2:.3f});')
+    c.sfx(it.get('sfx', 'ding'), t0 + 0.2, 0.6)
+def ins_title(c, it):
+    i = c.uid('title')
+    text = it['text']
+    col = color(c.cfg, it.get('color'), c.cfg['colors']['caption'])
+    fs = it.get('size') or fit_size(text, 210, ratio=0.62)
+    behind = it.get('behind', False)
+    y = it.get('y', SAFE['top'] + 8)   # top of the safe zone; the clip line does the 'behind' part
+    font = 'hand' if it.get('font') == 'hand' else 'cal'
+    letters = ''.join('<span class="tw">' + ''.join(f'<span class="l">{esc(ch)}</span>' for ch in word) + '</span>'
+                      for word in text.split())
+    dur = it['end'] - it['start']
+    c.add(2 if behind else 6,
+          f'<div id="{i}" class="clip title {font}" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+          f'data-track-index="{2 if behind else 6}" style="top:{y}px;color:{col};font-size:{fs}px">'
+          f'<div class="title-in">{letters}</div></div>')
+    if behind:
+        # only the cutout below clipTop covers the title: the head hides the bottom third of the letters
+        # (~80% of each letter stays visible) and lamps or shelves attached to the head in the mask never cover it
+        c.clips.append((it['start'], it['end'], int(it.get('clipTop', y + fs * 0.85))))
+    c.anim(f'tl.fromTo("#{i} .l",{{yPercent:110,opacity:0}},{{yPercent:0,opacity:1,duration:0.32,'
+           f'ease:"back.out(2)",stagger:0.03}},{it["start"]:.3f});')
+    c.anim(f'tl.fromTo("#{i} .title-in",{{scale:1}},{{scale:1.07,duration:{dur:.3f},ease:"none"}},{it["start"]:.3f});')
+    c.anim(f'tl.to("#{i} .title-in",{{opacity:0,y:-30,duration:0.18}},{it["end"] - 0.18:.3f});'
+           f'tl.set("#{i} .title-in",{{opacity:0}},{it["end"]:.3f});')
+    c.sfx(it.get('sfx', 'whoosh'), it['start'] - 0.05)
+    return behind
+
+
+def ins_media(c, it, video):
+    i = c.uid('media')
+    src = it['src']
+    mode = it.get('mode', 'full')
+    dur = it['end'] - it['start']
+    mw, mh = media_size(os.path.join(c.project, src))
+    if mode == 'full':
+        box = 'left:0;top:0;width:1080px;height:1920px'
+        cls = 'full'
+    else:
+        w = it.get('w', 620 if mode == 'card' else 340)
+        h = int(w * mh / mw)
+        max_h = it.get('maxH', 560 if mode == 'card' else 500)
+        if h > max_h:
+            w, h = int(max_h * mw / mh), max_h
+        x = it.get('x', (W - w) // 2)
+        y = it.get('y', 260)
+        box = f'left:{x}px;top:{y}px;width:{w}px;height:{h}px'
+        cls = mode
+    if video:
+        el = (f'<video id="{i}v" src="{esc(src)}" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+              f'data-media-start="{it.get("mediaStart", 0)}" data-track-index="5" muted playsinline></video>')
+        c.add(5, f'<div id="{i}" class="ins {cls}" style="{box}"><div class="frame">{el}</div></div>')
+        # the wrapper is not timed (the video is), so fade it with the timeline
+        c.anim(f'tl.set("#{i}",{{opacity:0}},0);tl.set("#{i}",{{opacity:1}},{it["start"]:.3f});'
+               f'tl.set("#{i}",{{opacity:0}},{it["end"]:.3f});')
+    else:
+        c.add(5, f'<div id="{i}" class="clip ins {cls}" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+                 f'data-track-index="5" style="{box}"><div class="frame"><img src="{esc(src)}" alt=""></div></div>')
+    rot = it.get('rot', 0 if mode == 'full' else -3)
+    if mode == 'full':
+        c.anim(f'tl.fromTo("#{i} .frame",{{scale:1.18,opacity:0.2}},{{scale:1,opacity:1,duration:0.28,'
+               f'ease:"power3.out"}},{it["start"]:.3f});')
+        c.anim(f'tl.to("#{i} .frame",{{scale:1.06,duration:{max(0.1, dur - 0.28):.3f},ease:"none"}},'
+               f'{it["start"] + 0.28:.3f});')
+        c.sfx(it.get('sfx', 'whoosh'), it['start'] - 0.05)
+    else:
+        c.anim(f'tl.fromTo("#{i} .frame",{{scale:0.3,rotation:{rot - 14},opacity:0}},{{scale:1,rotation:{rot},'
+               f'opacity:1,duration:0.3,ease:"back.out(2.2)"}},{it["start"]:.3f});')
+        c.anim(f'tl.to("#{i} .frame",{{y:-12,duration:{max(0.1, dur - 0.45):.3f},ease:"sine.inOut"}},'
+               f'{it["start"] + 0.3:.3f});')
+        c.anim(f'tl.to("#{i} .frame",{{scale:0.6,opacity:0,duration:0.15,ease:"power2.in"}},'
+               f'{it["end"] - 0.15:.3f});tl.set("#{i} .frame",{{opacity:0}},{it["end"]:.3f});')
+        c.sfx(it.get('sfx', 'pop'), it['start'])
+
+
+def ins_scribble(c, it):
+    i = c.uid('scr')
+    col = color(c.cfg, it.get('color'), '#FFFFFF')
+    fs = it.get('size', 170)
+    dur = it['end'] - it['start']
+    words = ''.join(f'<span class="sw">{esc(w)}</span>' for w in it['text'].split())
+    c.add(6, f'<div id="{i}" class="clip scribble" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+             f'data-track-index="6" style="left:{it.get("x", 90)}px;top:{it.get("y", 400)}px;'
+             f'max-width:{it.get("w", 900)}px;color:{col};font-size:{fs}px">'
+             f'<div class="scr-in" style="transform:rotate({it.get("rot", -6)}deg)">{words}</div></div>')
+    c.anim(f'tl.fromTo("#{i} .sw",{{clipPath:"inset(0 100% 0 0)"}},{{clipPath:"inset(0 0% 0 0)",duration:0.22,'
+           f'ease:"power1.out",stagger:0.18}},{it["start"]:.3f});')
+    c.sfx(it.get('sfx', 'click'), it['start'], 0.7)
+
+
+def ins_profile(c, it):
+    """Instagram-style follow card with the user's real name and handle (numbers come from reel.json)."""
+    i = c.uid('prof')
+    cfg = c.cfg
+    dur = it['end'] - it['start']
+    avatar = it.get('avatar', 'assets/avatar.jpg')
+    has_avatar = os.path.exists(os.path.join(c.project, avatar))
+    initials = ''.join(p[0] for p in cfg.get('name', 'N').split()[:2]).upper()
+    av = (f'<img class="av" src="{esc(avatar)}" alt="">' if has_avatar
+          else f'<div class="av av-txt">{esc(initials)}</div>')
+    stats = ''
+    for label, key in (('publicaciones', 'posts'), ('seguidores', 'followers'), ('seguidos', 'following')):
+        if it.get(key):
+            stats += f'<div class="st"><b>{esc(it[key])}</b><span>{label}</span></div>'
+    name = cfg.get('name', '').split('|')[0].strip()
+    bio = it.get('bio', cfg.get('name', '').split('|')[1].strip() if '|' in cfg.get('name', '') else '')
+    y = it.get('y', 1000)
+    c.add(9, f'<div id="{i}" class="clip prof" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+             f'data-track-index="9" style="top:{y}px"><div class="prof-in">'
+             f'<div class="row">{av}<div class="who"><div class="handle">{esc(cfg.get("instagram", ""))}</div>'
+             f'<div class="stats">{stats}</div></div></div>'
+             f'<div class="nm">{esc(name)}</div><div class="bio">{esc(bio)}</div>'
+             f'<div class="btn"><span class="b1">Seguir</span><span class="b2">Siguiendo</span></div>'
+             f'</div><div class="cursor"></div></div>')
+    t0 = it['start']
+    press = t0 + min(1.1, dur * 0.45)
+    c.anim(f'tl.fromTo("#{i} .prof-in",{{y:140,opacity:0,scale:0.9}},{{y:0,opacity:1,scale:1,duration:0.35,'
+           f'ease:"back.out(1.8)"}},{t0:.3f});')
+    c.anim(f'tl.fromTo("#{i} .cursor",{{x:260,y:260,opacity:0}},{{x:0,y:0,opacity:1,duration:0.5,'
+           f'ease:"power2.out"}},{t0 + 0.35:.3f});')
+    c.anim(f'tl.to("#{i} .btn",{{scale:0.92,duration:0.08}},{press:.3f});'
+           f'tl.to("#{i} .btn",{{scale:1,duration:0.12}},{press + 0.08:.3f});'
+           f'tl.set("#{i} .b1",{{opacity:0}},{press + 0.05:.3f});tl.set("#{i} .b2",{{opacity:1}},{press + 0.05:.3f});'
+           f'tl.set("#{i} .btn",{{backgroundColor:"#EFEFEF",color:"#111"}},{press + 0.05:.3f});')
+    c.anim(f'tl.to("#{i} .cursor",{{opacity:0,duration:0.2}},{press + 0.4:.3f});')
+    c.anim(f'tl.to("#{i} .prof-in",{{y:60,opacity:0,duration:0.2}},{it["end"] - 0.2:.3f});'
+           f'tl.set("#{i} .prof-in",{{opacity:0}},{it["end"]:.3f});')
+    c.sfx('rise', t0 - 0.05, 0.8)
+    c.sfx('click', press)
+    c.sfx('ding', press + 0.06, 0.8)
+
+
+def ins_steps(c, it):
+    """A row of chips joined by arrows; each chip pops in at its own time (a process in 2-4 steps)."""
+    i = c.uid('steps')
+    items = it['items']
+    times = it.get('times') or [it['start'] + 0.35 * k for k in range(len(items))]
+    dur = it['end'] - it['start']
+    acc = color(c.cfg, it.get('color'))
+    parts = []
+    for k, label in enumerate(items):
+        if k:
+            parts.append(f'<div class="arrow a{k}" style="color:{acc}">→</div>')
+        hl = ' hl' if k in it.get('highlight', []) else ''
+        parts.append(f'<div class="chip c{k}{hl}" style="--acc:{acc}">{esc(label)}</div>')
+    title = f'<div class="steps-t" style="color:{acc}">{esc(it["title"])}</div>' if it.get('title') else ''
+    c.add(6, f'<div id="{i}" class="clip steps" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+             f'data-track-index="6" style="top:{it.get("y", 300)}px">{title}<div class="steps-row">{"".join(parts)}'
+             f'</div></div>')
+    if it.get('title'):
+        c.anim(f'tl.fromTo("#{i} .steps-t",{{y:30,opacity:0}},{{y:0,opacity:1,duration:0.25,ease:"back.out(2)"}},'
+               f'{it["start"]:.3f});')
+    for k, t in enumerate(times):
+        c.anim(f'tl.fromTo("#{i} .c{k}",{{scale:0.2,opacity:0}},{{scale:1,opacity:1,'
+               f'duration:0.25,ease:"back.out(2.6)"}},{t:.3f});')
+        if k:
+            c.anim(f'tl.fromTo("#{i} .a{k}",{{x:-30,opacity:0}},{{x:0,opacity:1,duration:0.2}},'
+                   f'{t - 0.12:.3f});')
+        c.sfx('pop', t, 0.8)
+    c.anim(f'tl.to("#{i} .steps-row",{{opacity:0,duration:0.18}},{it["end"] - 0.18:.3f});'
+           f'tl.set("#{i} .steps-row",{{opacity:0}},{it["end"]:.3f});')
+
+
+def ins_webm(c, it):
+    i = c.uid('wm')
+    dur = it['end'] - it['start']
+    w = it.get('w', 900)
+    h = it.get('h', w)
+    c.add(5, f'<video id="{i}" class="clip" src="{esc(it["src"])}" data-start="{it["start"]:.3f}" '
+             f'data-duration="{dur:.3f}" data-track-index="5" muted playsinline style="position:absolute;'
+             f'left:{it.get("x", (W - w) // 2)}px;top:{it.get("y", 260)}px;width:{w}px;height:{h}px"></video>')
+    if it.get('sfx'):
+        c.sfx(it['sfx'], it['start'])
+
+
+# ---------------------------------------------------------------- page
+CSS = """
+@font-face{font-family:'Cal Sans';src:url('assets/fonts/CalSans-Regular.ttf') format('truetype')}
+@font-face{font-family:'Caveat';font-weight:700;src:url('assets/fonts/Caveat-Bold.ttf') format('truetype')}
+@font-face{font-family:'Inter';font-weight:600;src:url('assets/fonts/Inter-SemiBold.ttf') format('truetype')}
+@font-face{font-family:'Inter';font-weight:800;src:url('assets/fonts/Inter-ExtraBold.ttf') format('truetype')}
+html,body{margin:0;background:#000;overflow:hidden}
+#root{position:relative;width:100%;height:100%;overflow:hidden;background:#000;font-family:'Inter',sans-serif}
+#stage{position:absolute;inset:0;transform-origin:50% 35%}
+#stage video{position:absolute;left:0;top:0;width:1080px;height:1920px;object-fit:cover}
+.layer{position:absolute;inset:0;pointer-events:none}
+.cap{position:absolute;left:SL;right:SR;display:flex;justify-content:center}
+.cap-in{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:0 22px;text-align:center}
+.w{display:inline-block;font-family:'Cal Sans',sans-serif;line-height:1.02;color:CAPC;letter-spacing:0.5px;
+  text-shadow:OUTLINE}
+.w.e{line-height:0.95;letter-spacing:1px}
+.w.ce{font-family:'Inter',sans-serif;font-weight:800;color:#fff;letter-spacing:-0.5px;
+  text-shadow:0 3px 18px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3)}
+.w.ee{font-style:italic;line-height:1;letter-spacing:-1px}
+.num{position:absolute;right:0;display:flex;justify-content:center;font-family:'Inter',sans-serif;
+  font-weight:800;line-height:1;color:transparent;filter:drop-shadow(0 6px 20px rgba(0,0,0,.25))}
+.igh{position:absolute}
+.igh-in{display:flex;flex-direction:column;align-items:flex-start;gap:10px;color:#fff;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
+.igh-in svg{width:46px;height:46px}
+.igh-in span{font-family:'Inter',sans-serif;font-weight:800;font-size:20px;letter-spacing:0.5px}
+.endc{position:absolute;inset:0}
+.endc-bg{position:absolute;inset:0;background:rgba(12,12,12,.72)}
+.endc-in{position:absolute;left:0;right:0;top:760px;display:flex;flex-direction:column;align-items:center;
+  gap:26px;color:#fff}
+.endc-logo svg{width:150px;height:150px}
+.endc-h{font-family:'Inter',sans-serif;font-weight:800;font-size:40px;letter-spacing:1px}
+.title{position:absolute;left:30px;right:30px;display:flex;justify-content:center;text-align:center}
+.title.cal{font-family:'Cal Sans',sans-serif;line-height:0.92;text-shadow:0 10px 30px rgba(0,0,0,.25)}
+.title.hand{font-family:'Caveat',cursive;font-weight:700;line-height:0.9}
+.title-in{display:flex;flex-wrap:wrap;justify-content:center;gap:0 0.25em;padding:0.08em 0}
+.tw{display:inline-flex;white-space:nowrap;overflow:hidden;padding:0.06em 0.02em}
+.l{display:inline-block}
+.ins{position:absolute}
+.ins .frame{position:absolute;inset:0;overflow:hidden}
+.ins.card .frame{border:10px solid #fff;border-radius:30px;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.ins.sticker .frame{overflow:visible;filter:drop-shadow(0 16px 24px rgba(0,0,0,.45))}
+.ins img,.ins video{width:100%;height:100%;object-fit:cover;display:block}
+.ins.sticker img{object-fit:contain}
+.scribble{position:absolute;font-family:'Caveat',cursive;font-weight:700;line-height:0.95;
+  text-shadow:OUTLINE}
+.scr-in{display:flex;flex-wrap:wrap;gap:0 0.25em}
+.sw{display:inline-block}
+.prof{position:absolute;left:70px;right:110px}
+.prof-in{background:#fff;border-radius:36px;padding:34px 38px;box-shadow:0 30px 80px rgba(0,0,0,.45);color:#111}
+.prof .row{display:flex;align-items:center;gap:30px}
+.prof .av{width:180px;height:180px;border-radius:50%;object-fit:cover;flex:none;
+  box-shadow:0 0 0 6px #fff,0 0 0 11px ACC0}
+.prof .av-txt{display:flex;align-items:center;justify-content:center;background:CAPC;color:#111;
+  font-family:'Cal Sans',sans-serif;font-size:76px}
+.prof .handle{font-weight:800;font-size:54px;margin-bottom:12px}
+.prof .stats{display:flex;gap:28px}
+.prof .st{display:flex;flex-direction:column;font-size:28px;color:#555}
+.prof .st b{font-size:40px;color:#111;font-weight:800}
+.prof .nm{font-weight:800;font-size:40px;margin-top:22px}
+.prof .bio{font-size:34px;color:#444;margin-top:4px}
+.prof .btn{position:relative;margin-top:24px;height:92px;border-radius:20px;background:#0095F6;color:#fff;
+  font-weight:800;font-size:40px;display:flex;align-items:center;justify-content:center}
+.prof .btn span{position:absolute}
+.prof .b2{opacity:0}
+.prof .cursor{position:absolute;right:170px;bottom:30px;width:64px;height:64px;border-radius:50%;
+  background:rgba(255,255,255,.85);box-shadow:0 0 0 4px rgba(0,0,0,.25)}
+.steps{position:absolute;left:40px;right:40px;display:flex;flex-direction:column;align-items:center;gap:18px}
+.steps-t{font-family:'Cal Sans',sans-serif;font-size:96px;text-shadow:OUTLINE}
+.steps-row{display:flex;align-items:center;justify-content:center;gap:14px}
+.chip{display:block;background:#fff;color:#141414;font-family:'Cal Sans',sans-serif;font-size:58px;
+  padding:22px 30px;border-radius:26px;box-shadow:0 14px 34px rgba(0,0,0,.35);white-space:nowrap}
+.chip.hl{background:var(--acc);color:#141414}
+.arrow{display:block;font-family:'Inter',sans-serif;font-weight:800;font-size:60px;text-shadow:OUTLINE}
+#flash{position:absolute;inset:0;background:#fff;opacity:0}
+.safe{position:absolute;border:3px solid rgba(255,0,0,.9);pointer-events:none}
+"""
+
+
+def shadow():
+    """Soft drop shadow for text on video. No outline: a shadow reads cleaner on video."""
+    return '0 4px 14px rgba(0,0,0,.55),0 2px 4px rgba(0,0,0,.45)'
+
+
+def main():
+    if len(sys.argv) < 2:
+        common.die('uso: build.py <project> [--safe]')
+    safe = '--safe' in sys.argv
+    cfg = common.load_config()
+    project = common.project_dir(sys.argv[1])
+    segments = common.read_json(os.path.join(project, 'segments.json'))
+    caps = common.read_json(os.path.join(project, 'captions.json'), [])
+    reel = common.read_json(os.path.join(project, 'reel.json'), {})
+    cfg['_sfx_gain'] = float(reel.get('sfx', {}).get('gain', 1.0))
+    total = segments[-1]['end_frame'] / common.FPS
+
+    # shared assets into the project (fonts, sfx, gsap)
+    for sub in ('fonts', 'sfx', 'vendor'):
+        src = os.path.join(common.SKILL_DIR, 'assets', sub)
+        dst = os.path.join(project, 'assets', sub)
+        if os.path.isdir(src):
+            shutil.copytree(src, dst, dirs_exist_ok=True)
+    if not os.path.exists(os.path.join(project, 'assets', 'vendor', 'gsap.min.js')):
+        common.die('falta assets/vendor/gsap.min.js: correr scripts/setup.py')
+
+    c = Comp(cfg, project, safe)
+    build_captions(c, caps, reel.get('captions', {}))
+
+    needs_cutout = False
+    for it in sorted(reel.get('inserts', []), key=lambda x: x['start']):
+        t = it['type']
+        if t == 'title':
+            needs_cutout |= ins_title(c, it)
+        elif t == 'broll':
+            ins_media(c, it, video=True)
+        elif t == 'image':
+            ins_media(c, it, video=False)
+        elif t == 'scribble':
+            ins_scribble(c, it)
+        elif t == 'profile':
+            ins_profile(c, it)
+        elif t == 'steps':
+            ins_steps(c, it)
+        elif t == 'webm':
+            ins_webm(c, it)
+        elif t == 'number':
+            ins_number(c, it)
+        elif t == 'handle':
+            ins_handle(c, it)
+        elif t == 'endcard':
+            ins_endcard(c, it)
+        else:
+            common.die(f'tipo de insert desconocido: {t}')
+    cut_path = os.path.join(project, 'assets', 'cutout.webm')
+    if needs_cutout and not os.path.exists(cut_path):
+        common.die('hay títulos "behind" pero falta assets/cutout.webm: correr cutout.py primero')
+
+    # camera moves: explicit zooms + a quick punch on every emphasis caption
+    zooms = list(reel.get('zooms', []))
+    if reel.get('autoZoom', True):
+        for g in caps:
+            if g.get('emph'):
+                zooms.append({'start': g['start'], 'end': g['end'], 'scale': 1.08, 'fast': True})
+    for z in sorted(zooms, key=lambda z: z['start']):
+        s, e, k = z['start'], z['end'], z.get('scale', 1.15)
+        ox, oy = z.get('ox', 0.5), z.get('oy', 0.35)
+        c.anim(f'tl.set("#stage",{{transformOrigin:"{ox * 100:.0f}% {oy * 100:.0f}%"}},{s:.3f});')
+        c.anim(f'tl.to("#stage",{{scale:{k},duration:{0.12 if z.get("fast") else 0.35},ease:"power3.out"}},{s:.3f});')
+        c.anim(f'tl.to("#stage",{{scale:1,duration:0.2,ease:"power2.inOut"}},{max(s + 0.15, e - 0.2):.3f});')
+    if reel.get('flashes'):
+        c.anim('tl.set("#flash",{opacity:0},0);')
+    for f in reel.get('flashes', []):
+        c.anim(f'tl.fromTo("#flash",{{opacity:0.85}},{{opacity:0,duration:0.22,ease:"power2.out",'
+               f'immediateRender:false}},{f:.3f});')
+        c.sfx('whoosh', f - 0.05, 0.8)
+
+    music = reel.get('music')
+    if music:
+        vol = music.get('volume', 0.08)
+        fade = f'{{"version":1,"lanes":[{{"target":"volume","points":[{{"t":0,"v":{vol}}},' \
+               f'{{"t":{total - 1.2:.2f},"v":{vol}}},{{"t":{total:.2f},"v":0}}]}}]}}'
+        c.audio.append(f'<audio id="music" src="{esc(music["src"])}" data-start="0" data-duration="{total:.3f}" '
+                       f'data-track-index="30" data-volume="{vol}" data-automation=\'{fade}\'></audio>')
+
+    col = cfg['colors']
+    css = (CSS.replace('CAPC', col['caption']).replace('OUTLINE', shadow())
+           .replace('ACC0', col['accents'][0]).replace('SL', f'{SAFE["left"]}px')
+           .replace('SR', f'{W - SAFE["right_low"]}px'))
+    stage = [f'<video id="aroll" class="clip" src="aroll.mp4" data-start="0" data-duration="{total:.3f}" '
+             f'data-track-index="0" playsinline data-has-audio="true"></video>']
+    stage.append('<div class="layer" id="behind">' + ''.join(c.layers.pop(2, [])) + '</div>')
+    if needs_cutout:
+        stage.append(f'<video id="cutout" class="clip" src="{clipped_cutout(project, c.clips)}" data-start="0" '
+                     f'data-duration="{total:.3f}" data-track-index="1" muted playsinline></video>')
+    layers = ''.join(f'<div class="layer" id="z{z}">' + ''.join(v) + '</div>' for z, v in sorted(c.layers.items()))
+    guide = ''
+    if safe:
+        guide = (f'<div class="safe" style="left:{SAFE["left"]}px;top:{SAFE["top"]}px;'
+                 f'width:{SAFE["right"] - SAFE["left"]}px;height:{SAFE["bottom"] - SAFE["top"]}px"></div>'
+                 f'<div class="safe" style="left:{SAFE["right_low"]}px;top:{SAFE["right_low_from"]}px;width:0;'
+                 f'height:{SAFE["bottom"] - SAFE["right_low_from"]}px"></div>')
+    page = f"""<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width={W}, height={H}">
+<title>reel</title>
+<script src="assets/vendor/gsap.min.js"></script>
+<style>{css}</style>
+</head>
+<body>
+<div id="root" data-composition-id="main" data-start="0" data-width="{W}" data-height="{H}" data-duration="{total:.3f}">
+<div id="stage">{''.join(stage)}</div>
+{layers}
+<div id="flash"></div>
+{guide}
+{''.join(c.audio)}
+</div>
+<script>
+document.fonts.ready.then(function () {{
+  const tl = gsap.timeline({{ paused: true }});
+  {chr(10).join('  ' + a for a in c.tl)}
+  window.__timelines["main"] = tl;
+}});
+</script>
+</body>
+</html>
+"""
+    with open(os.path.join(project, 'index.html'), 'w', encoding='utf-8') as f:
+        f.write(page)
+    for name in ('hyperframes.json',):
+        p = os.path.join(project, name)
+        if not os.path.exists(p):
+            common.write_json(p, {'name': os.path.basename(project)})
+    common.say(f'OK index.html  {common.tc(total)}  {len(caps)} subtítulos, '
+               f'{len(reel.get("inserts", []))} inserts, {len(c.audio)} sonidos'
+               + ('  [guía de zona segura]' if safe else ''))
+
+
+if __name__ == '__main__':
+    main()
