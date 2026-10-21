@@ -30,7 +30,7 @@ color, inserts que entran con "pop", texto escrito a mano, b-roll y capturas rea
 | Cada sección / marca / número ("Shopify", "#1") | `title` detrás de la cabeza, un acento distinto cada vez, + `flash` |
 | Muestra algo real (una app, un resultado) | `image` o `broll` en modo `card` arriba de la cabeza, con borde blanco |
 | Un objeto o un logo propio | `image` modo `sticker` (PNG transparente), pop + flota |
-| Explica algo que se entiende mejor viéndolo (una conversación, una agenda, una lista, un número, un lugar) | corte a pantalla completa: `scene` animada, stock de Pexels o clip propio (`references/pantalla-completa.md`) |
+| Explica algo que se entiende mejor viéndolo (una conversación, una agenda, una lista, un número, un lugar) | corte a pantalla completa: `scene` animada, stock (Pixabay o Pexels) o clip propio (`references/pantalla-completa.md`) |
 | Nombra algo concreto (un calendario, un chat, pendientes, un permiso, la IA) | `anim`: ícono de línea que se dibuja y se mueve al costado de la cabeza (`references/animaciones.md`) |
 | Una lista de puntos ("lo primero", "la segunda", "y tercero") | `number` con contorno, al costado de la cabeza |
 | Remate, chiste, reacción ("¡ojo!", "cero olvidos") | `scribble` |

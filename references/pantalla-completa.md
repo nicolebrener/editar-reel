@@ -6,7 +6,7 @@ subtítulos encima. Hay tres fuentes; usá la que mejor explique cada momento.
 | Fuente | Cuándo | Cómo |
 |---|---|---|
 | **Escena animada** (`scene`) | Un proceso, una app, un dato: un chat, una agenda, una lista, un número, una frase clave | se arma en HTML, no hace falta bajar nada |
-| **Stock** (Pexels) | Algo del mundo real: una ciudad, gente trabajando, una oficina, un celular en la mano, un estadio | `broll.py search` + `get` |
+| **Stock** (Pixabay o Pexels) | Algo del mundo real: una ciudad, gente trabajando, una oficina, un celular en la mano, un estadio | `broll.py search` + `get` |
 | **Clips propios** | Grabaciones de pantalla de la app de la que se habla, b-roll que grabó la persona | `broll.py prep` |
 
 ## Escenas animadas: insert `scene`
@@ -28,17 +28,20 @@ Los textos de una escena salen de lo que dice el video o de lo que se ve en sus 
 nombres de clientes ni números. Si hace falta un ejemplo ("Martina pregunta por una reunión"), que sea genérico y
 sin personas reales. Sin emojis: el render no tiene fuente de emojis y salen como cuadraditos.
 
-## Stock de Pexels
+## Stock (Pixabay o Pexels)
 ```bash
 PY SK/scripts/broll.py search <proyecto> "woman texting phone" --n 8     # hoja: work/broll-<busqueda>.jpg
-PY SK/scripts/broll.py get <proyecto> <id> --name celu --start 1 --dur 3  # -> assets/broll/celu.mp4
+PY SK/scripts/broll.py get <proyecto> pb123456 --name celu --start 1 --dur 3  # -> assets/broll/celu.mp4
 ```
-- Buscá en inglés y concreto ("calendar planner desk", no "organización"). Mirá la hoja y elegí el que se ve
-  natural, con luz parecida al video, sin texto ni logos de otras marcas y sin caras en primer plano que
-  distraigan.
-- Necesita la clave gratis de Pexels en `SK/.pexels_key` (una línea; está en `.gitignore`) o en la variable
-  `PEXELS_API_KEY`. Si falta, el script lo dice: pedile a la persona que la saque en https://www.pexels.com/api/
-  y que la pegue ella en ese archivo. Los clips de Pexels se usan gratis y sin atribución.
+- Buscá en inglés y concreto ("calendar planner desk", no "organización"). Mirá la hoja (muestra el recorte 9:16
+  que va a quedar) y elegí el que se ve natural, con luz parecida al video, sin texto ni logos de otras marcas y
+  sin caras en primer plano que distraigan. Los verticales salen primero; un horizontal se recorta al centro.
+- Usa el sitio cuya clave esté guardada: primero Pixabay, si no Pexels. Las claves son gratis y van en
+  `SK/.pixabay_key` o `SK/.pexels_key` (una línea, en `.gitignore`), o en `PIXABAY_API_KEY` / `PEXELS_API_KEY`.
+  Si falta, el script lo dice: la persona la saca (Pixabay: logueada, la clave aparece en
+  https://pixabay.com/api/docs/) y la guarda ella con `sh SK/scripts/stock_key.sh pixabay`, que no la muestra.
+  Nunca le pidas que la pegue en el chat. Pexels pausó las claves nuevas en 2026-10.
+- Los clips de Pixabay y Pexels se usan gratis y sin atribución.
 
 ## Clips propios
 ```bash

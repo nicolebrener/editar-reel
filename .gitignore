@@ -7,3 +7,4 @@ __pycache__/
 .DS_Store
 assets/vendor/
 .pexels_key
+.pixabay_key

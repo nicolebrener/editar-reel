@@ -101,7 +101,7 @@ venga editado y la persona pida "solo subtítulos", proponé las que sumen: es l
 
 **Cortes a pantalla completa que explican.** Cada 8-15 s, cuando una frase se entiende mejor viéndola, cortá 1.5-3 s
 a una escena animada (`scene`: un chat que se escribe, una agenda con huecos libres, pendientes que se tildan, un
-número que cuenta, una frase clave), a un clip de stock de Pexels o a un clip de la persona
+número que cuenta, una frase clave), a un clip de stock (Pixabay o Pexels) o a un clip de la persona
 (`scripts/broll.py`). Cómo elegir, cómo bajarlos y las reglas: `references/pantalla-completa.md`.
 ```bash
 PY SK/scripts/build.py <proyecto> --safe
