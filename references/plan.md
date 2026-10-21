@@ -56,6 +56,7 @@ Todos llevan `type`, `start`, `end`. Opcional en todos: `sfx` (nombre del sonido
 | `steps` | `items` (2-4 textos cortos), `times` (uno por item), `title`, `highlight` (índices), `y`, `color` | chips con flechas |
 | `profile` | `y`, `followers`, `posts`, `following`, `bio`, `avatar` | nombre y usuario salen de `config.json`; los números solo si la persona los da; `avatar` default `assets/avatar.jpg` (si no hay, iniciales) |
 | `webm` | `src`, `x`, `y`, `w`, `h` | animación con transparencia hecha aparte |
+| `anim` | `icon`, `pos` (`right`/`left`), `x`, `y`, `size`, `style` (`line`/`badge`), `label`, `color`, `accent` | ícono de línea que se dibuja solo y se mueve, para ilustrar lo que se dice; íconos y reglas en `references/animaciones.md` |
 | `number` | `text`, `x`, `y`, `size`, `stroke`, `color` | número gigante solo con contorno ("1", "2", "3") para cada punto de una lista; `x` = borde izquierdo de la zona donde se centra. Al costado de la cabeza, nunca sobre la cara |
 | `handle` | `spots` (`[{"t", "x", "y"}]`) | ícono de Instagram + @usuario como marca de agua que cambia de lugar; solo si la persona lo quiere |
 | `endcard` | | cierre: oscurece el video y muestra el logo de Instagram + @usuario en el centro; solo si la persona lo quiere |

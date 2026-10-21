@@ -30,6 +30,8 @@ color, inserts que entran con "pop", texto escrito a mano, b-roll y capturas rea
 | Cada sección / marca / número ("Shopify", "#1") | `title` detrás de la cabeza, un acento distinto cada vez, + `flash` |
 | Muestra algo real (una app, un resultado) | `image` o `broll` en modo `card` arriba de la cabeza, con borde blanco |
 | Un objeto o un logo propio | `image` modo `sticker` (PNG transparente), pop + flota |
+| Nombra algo concreto (un calendario, un chat, pendientes, un permiso, la IA) | `anim`: ícono de línea que se dibuja y se mueve al costado de la cabeza (`references/animaciones.md`) |
+| Una lista de puntos ("lo primero", "la segunda", "y tercero") | `number` con contorno, al costado de la cabeza |
 | Remate, chiste, reacción ("¡ojo!", "cero olvidos") | `scribble` |
 | Un proceso o un antes/después | `steps` (chips con flechas que aparecen al ritmo de la voz) |
 | CTA final | `profile` (tarjeta de Instagram con "Seguir" -> "Siguiendo") |

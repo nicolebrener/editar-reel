@@ -12,7 +12,8 @@ y cada vuelta es un rebuild + render.
 `PY` = `SK/.venv/bin/python` (Windows: `SK/.venv/Scripts/python.exe`). Todos los scripts corren con `PY`.
 `HF` = `npx --yes hyperframes@0.8.34` (HyperFrames: HTML a video, Apache-2.0).
 
-Antes de armar el primer reel de la sesión leé `references/estilo.md` (el look) y `references/errores.md`
+Antes de armar el primer reel de la sesión leé `references/estilo.md` (el look), `references/animaciones.md`
+(qué ícono animado va con qué palabras) y `references/errores.md`
 (cada trampa en la que ya caímos). `references/plan.md` tiene el formato completo de `edl.json`, `captions.json`
 y `reel.json`.
 
@@ -90,6 +91,12 @@ PY SK/scripts/captions.py <proyecto> --force --emph "palabra clave,frase clave" 
 Escribí `reel.json` con los inserts (ver `references/plan.md` y las ideas de `references/estilo.md`):
 títulos detrás de la cabeza para cada sección, tarjetas con capturas reales, stickers, texto a mano, pasos,
 la tarjeta de perfil en el CTA, flashes en los cambios de tema.
+
+**Animá lo que se dice.** Leé `words.json` buscando cosas que se puedan dibujar (un calendario, un chat, una
+lista de pendientes, un permiso, la IA) y poné un `anim` al costado de la cabeza justo cuando se nombran: el ícono
+se dibuja solo y se mueve. La tabla de qué ícono va con qué palabras y las reglas (una cada 4-8 s, nunca sobre la
+cara, nunca encima de una captura que ya muestra eso) están en `references/animaciones.md`. Aunque el video ya
+venga editado y la persona pida "solo subtítulos", proponé las que sumen: es lo que más lo hace dinámico.
 ```bash
 PY SK/scripts/build.py <proyecto> --safe
 cd <proyecto> && HF lint                 # 0 errores

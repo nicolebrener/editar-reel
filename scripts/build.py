@@ -34,6 +34,7 @@ import shutil
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import anims  # noqa: E402
 import common  # noqa: E402
 
 W, H, SAFE = common.W, common.H, common.SAFE
@@ -221,6 +222,52 @@ def ins_number(c, it):
     c.anim(f'tl.to("#{i} .num-in",{{opacity:0,scale:0.95,duration:0.2}},{it["end"] - 0.2:.3f});'
            f'tl.set("#{i} .num-in",{{opacity:0}},{it["end"]:.3f});')
     c.sfx(it.get('sfx', 'whoosh'), it['start'] - 0.05, 0.6)
+
+
+def ins_anim(c, it):
+    """An animated line icon that illustrates what is being said (anims.py): it draws itself on, keeps a small
+    loop going and fades out. `pos` "right"/"left" puts it beside the head; `x`/`y` place it by hand."""
+    name = it['icon']
+    if name not in anims.ICONS:
+        common.die(f'anim: no existe el ícono "{name}" (hay: {", ".join(sorted(anims.ICONS))})')
+    i = c.uid('anim')
+    dur = it['end'] - it['start']
+    size = it.get('size', 260)
+    x = it.get('x', SAFE['left'] + 25 if it.get('pos') == 'left' else SAFE['right'] - size - 15)
+    y = it.get('y', 780)
+    fg = color(c.cfg, it.get('color'), '#FFFFFF')
+    acc = color(c.cfg, it.get('accent'), c.cfg.get('_emph') or c.cfg['colors']['caption'])
+    badge = it.get('style') == 'badge'
+    if badge:
+        fg = '#161616'
+    label = f'<div class="anim-l">{esc(it["label"])}</div>' if it.get('label') else ''
+    c.add(6, f'<div id="{i}" class="clip anim{" badge" if badge else ""}" data-start="{it["start"]:.3f}" '
+             f'data-duration="{dur:.3f}" data-track-index="6" style="left:{x}px;top:{y}px;width:{size}px;'
+             f'--fg:{fg};--acc:{acc}"><div class="anim-in"><svg viewBox="0 0 100 100">{anims.ICONS[name]}</svg>'
+             f'</div>{label}</div>')
+    t0 = it['start']
+    c.anim(f'tl.fromTo("#{i} .anim-in",{{scale:0.6,opacity:0}},{{scale:1,opacity:1,duration:0.3,'
+           f'ease:"back.out(2)"}},{t0:.3f});')
+    c.anim(f'tl.fromTo("#{i} .d",{{strokeDashoffset:1,opacity:0}},{{strokeDashoffset:0,opacity:1,duration:0.5,ease:"power2.out",'
+           f'stagger:0.08}},{t0 + 0.05:.3f});')
+    c.anim(f'tl.fromTo("#{i} .p",{{scale:0,transformOrigin:"50% 50%"}},{{scale:1,duration:0.2,ease:"back.out(3)",'
+           f'stagger:0.06}},{t0 + 0.4:.3f});')
+    c.anim(f'tl.fromTo("#{i} .k",{{strokeDashoffset:1,opacity:0}},{{strokeDashoffset:0,opacity:1,duration:0.35,ease:"power2.out",'
+           f'stagger:0.22}},{t0 + 0.55:.3f});')
+    if label:
+        c.anim(f'tl.fromTo("#{i} .anim-l",{{y:16,opacity:0}},{{y:0,opacity:1,duration:0.25}},{t0 + 0.3:.3f});')
+    if name in anims.MOTION:
+        sel, vars_, cycle = anims.MOTION[name]
+        loop_from = t0 + 0.9
+        n = int((it['end'] - 0.25 - loop_from) / cycle)
+        if n >= 2:
+            full_turn = 'rotation:360' in vars_
+            reps = n - 1 if full_turn else (n // 2) * 2 - 1     # yoyo: an odd repeat count ends back at rest
+            c.anim(f'tl.to("#{i} {sel}",Object.assign({vars_},{{duration:{cycle},repeat:{reps},'
+                   f'yoyo:{"false" if full_turn else "true"}}}),{loop_from:.3f});')
+    c.anim(f'tl.to("#{i}",{{opacity:0,scale:0.9,duration:0.2}},{it["end"] - 0.2:.3f});'
+           f'tl.set("#{i}",{{opacity:0}},{it["end"]:.3f});')
+    c.sfx(it.get('sfx', 'pop'), t0, 0.5)
 
 
 def ins_handle(c, it):
@@ -445,6 +492,17 @@ html,body{margin:0;background:#000;overflow:hidden}
 .w.ee{font-style:italic;line-height:1;letter-spacing:-1px}
 .num{position:absolute;right:0;display:flex;justify-content:center;font-family:'Inter',sans-serif;
   font-weight:800;line-height:1;color:transparent;filter:drop-shadow(0 6px 20px rgba(0,0,0,.25))}
+.anim{position:absolute;display:flex;flex-direction:column;align-items:center;gap:10px}
+.anim-in{width:100%;aspect-ratio:1;filter:drop-shadow(0 4px 14px rgba(0,0,0,.4))}
+.anim.badge .anim-in{background:#fff;border-radius:28%;padding:14%;box-sizing:border-box;
+  filter:drop-shadow(0 14px 30px rgba(0,0,0,.35))}
+.anim svg{width:100%;height:100%;overflow:visible;fill:none;stroke:var(--fg);stroke-width:5.5;
+  stroke-linecap:round;stroke-linejoin:round}
+.anim svg [pathLength]{stroke-dasharray:1;stroke-dashoffset:0}
+.anim svg .k{stroke:var(--acc)}
+.anim svg .p{fill:var(--fg);stroke:none}
+.anim-l{font-family:'Inter',sans-serif;font-weight:800;font-size:44px;color:#fff;white-space:nowrap;
+  text-shadow:0 3px 14px rgba(0,0,0,.45)}
 .igh{position:absolute}
 .igh-in{display:flex;flex-direction:column;align-items:flex-start;gap:10px;color:#fff;
   filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
@@ -518,6 +576,7 @@ def main():
     caps = common.read_json(os.path.join(project, 'captions.json'), [])
     reel = common.read_json(os.path.join(project, 'reel.json'), {})
     cfg['_sfx_gain'] = float(reel.get('sfx', {}).get('gain', 1.0))
+    cfg['_emph'] = reel.get('captions', {}).get('emphColor')   # icons take the emphasis colour as their accent
     total = segments[-1]['end_frame'] / common.FPS
 
     # shared assets into the project (fonts, sfx, gsap)
@@ -551,6 +610,8 @@ def main():
             ins_webm(c, it)
         elif t == 'number':
             ins_number(c, it)
+        elif t == 'anim':
+            ins_anim(c, it)
         elif t == 'handle':
             ins_handle(c, it)
         elif t == 'endcard':
