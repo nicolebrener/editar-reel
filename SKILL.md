@@ -13,7 +13,8 @@ y cada vuelta es un rebuild + render.
 `HF` = `npx --yes hyperframes@0.8.34` (HyperFrames: HTML a video, Apache-2.0).
 
 Antes de armar el primer reel de la sesión leé `references/estilo.md` (el look), `references/animaciones.md`
-(qué ícono animado va con qué palabras) y `references/errores.md`
+(qué ícono animado va con qué palabras), `references/pantalla-completa.md` (cortes que explican) y
+`references/errores.md`
 (cada trampa en la que ya caímos). `references/plan.md` tiene el formato completo de `edl.json`, `captions.json`
 y `reel.json`.
 
@@ -97,6 +98,11 @@ lista de pendientes, un permiso, la IA) y poné un `anim` al costado de la cabez
 se dibuja solo y se mueve. La tabla de qué ícono va con qué palabras y las reglas (una cada 4-8 s, nunca sobre la
 cara, nunca encima de una captura que ya muestra eso) están en `references/animaciones.md`. Aunque el video ya
 venga editado y la persona pida "solo subtítulos", proponé las que sumen: es lo que más lo hace dinámico.
+
+**Cortes a pantalla completa que explican.** Cada 8-15 s, cuando una frase se entiende mejor viéndola, cortá 1.5-3 s
+a una escena animada (`scene`: un chat que se escribe, una agenda con huecos libres, pendientes que se tildan, un
+número que cuenta, una frase clave), a un clip de stock de Pexels o a un clip de la persona
+(`scripts/broll.py`). Cómo elegir, cómo bajarlos y las reglas: `references/pantalla-completa.md`.
 ```bash
 PY SK/scripts/build.py <proyecto> --safe
 cd <proyecto> && HF lint                 # 0 errores

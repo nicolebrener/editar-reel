@@ -19,12 +19,18 @@ Pensada para reels en **español**.
 3. **Corta desde el original en 4K**, con punch-ins para dar ritmo, y pasa el HDR del iPhone a color normal para
    que no quede lavado en Instagram.
 4. **Subtítulos dinámicos**: Cal Sans amarilla, de 1 a 3 palabras, cada palabra aparece cuando la decís; las
-   palabras clave salen solas, gigantes y de color, con un zoom de cámara.
-5. **Te recorta del fondo** para poner títulos detrás de tu cabeza.
-6. **Inserts animados**: tarjetas con capturas reales, b-roll, stickers, texto escrito a mano, pasos con flechas
+   palabras clave salen solas, gigantes y de color, con un zoom de cámara. O el estilo **clean**: una palabra
+   blanca por vez y los destacados en itálica de un solo color.
+5. **Anima lo que decís**: íconos de línea que se dibujan solos al costado de tu cabeza (un calendario que tilda
+   un día, un chat escribiendo, una lista que se tilda) y números gigantes con contorno para cada punto de una lista.
+6. **Cortes a pantalla completa que explican**: escenas animadas (un chat que se escribe, una agenda con los huecos
+   libres, pendientes que se tildan, un número que cuenta), clips de stock de [Pexels](https://www.pexels.com/api/)
+   (clave gratis) o tus propias grabaciones de pantalla.
+7. **Te recorta del fondo** para poner títulos detrás de tu cabeza.
+8. **Inserts animados**: tarjetas con capturas reales, b-roll, stickers, texto escrito a mano, pasos con flechas
    ("antes: tu app → ChatGPT → tu app") y tu perfil de Instagram con el botón "Seguir" en el cierre.
-7. **Efectos de sonido** sutiles (pop, whoosh, click, ding), siempre por debajo de tu voz.
-8. **Control de calidad**: todo dentro de la zona segura de Reels, revisa cada corte cuadro por cuadro y te da
+9. **Efectos de sonido** sutiles (pop, whoosh, click, ding), siempre por debajo de tu voz.
+10. **Control de calidad**: todo dentro de la zona segura de Reels, revisa cada corte cuadro por cuadro y te da
    una copia liviana para el celu.
 
 ---

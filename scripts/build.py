@@ -35,6 +35,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import anims  # noqa: E402
+import scenes  # noqa: E402
 import common  # noqa: E402
 
 W, H, SAFE = common.W, common.H, common.SAFE
@@ -268,6 +269,27 @@ def ins_anim(c, it):
     c.anim(f'tl.to("#{i}",{{opacity:0,scale:0.9,duration:0.2}},{it["end"] - 0.2:.3f});'
            f'tl.set("#{i}",{{opacity:0}},{it["end"]:.3f});')
     c.sfx(it.get('sfx', 'pop'), t0, 0.5)
+
+
+def ins_scene(c, it):
+    """A full-screen animated scene that explains what is being said (scenes.py): a chat, a calendar, a list..."""
+    kind = it.get('kind')
+    if kind not in scenes.KINDS:
+        common.die(f'scene: no existe "{kind}" (hay: {", ".join(scenes.KINDS)})')
+    i = c.uid('scn')
+    dur = it['end'] - it['start']
+    acc = color(c.cfg, it.get('accent'), c.cfg.get('_emph') or c.cfg['colors']['caption'])
+    markup, js, times = scenes.KINDS[kind](i, it, acc)
+    c.add(5, f'<div id="{i}" class="clip scn" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+             f'data-track-index="5" style="--acc:{acc}"><div class="scn-bg"></div>'
+             f'<div class="scn-in">{markup}</div></div>')
+    c.anim(f'tl.fromTo("#{i} .scn-in",{{scale:1.04,opacity:0}},{{scale:1,opacity:1,duration:0.25,'
+           f'ease:"power2.out"}},{it["start"]:.3f});')
+    for line in js:
+        c.anim(line)
+    c.sfx(it.get('sfx', 'whoosh'), it['start'] - 0.05, 0.6)
+    for t in times:
+        c.sfx(it.get('itemSfx', 'click'), t, 0.35)
 
 
 def ins_handle(c, it):
@@ -612,6 +634,8 @@ def main():
             ins_number(c, it)
         elif t == 'anim':
             ins_anim(c, it)
+        elif t == 'scene':
+            ins_scene(c, it)
         elif t == 'handle':
             ins_handle(c, it)
         elif t == 'endcard':
@@ -650,7 +674,7 @@ def main():
                        f'data-track-index="30" data-volume="{vol}" data-automation=\'{fade}\'></audio>')
 
     col = cfg['colors']
-    css = (CSS.replace('CAPC', col['caption']).replace('OUTLINE', shadow())
+    css = ((CSS + scenes.CSS).replace('CAPC', col['caption']).replace('OUTLINE', shadow())
            .replace('ACC0', col['accents'][0]).replace('SL', f'{SAFE["left"]}px')
            .replace('SR', f'{W - SAFE["right_low"]}px'))
     stage = [f'<video id="aroll" class="clip" src="aroll.mp4" data-start="0" data-duration="{total:.3f}" '

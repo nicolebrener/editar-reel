@@ -53,3 +53,12 @@
 ## Contenido
 - Las grabaciones de pantalla suelen mostrar nombres completos, teléfonos y chats de otras personas. Recortá.
 - Los números de seguidores no se inventan.
+
+## Escenas y b-roll
+- **Sin emojis** en textos de escenas, tarjetas o subtítulos: el render no tiene fuente de emojis (salen cuadraditos).
+- Los nombres de clase CSS de cada insert son globales: una clase repetida entre dos inserts (`.num` del número
+  con contorno y el contador de `stat`) vuelve invisible a uno de los dos. Prefijá las clases nuevas.
+- Un contador con `onUpdate` no se ve en el render (HyperFrames salta de cuadro en cuadro): `stat` usa un
+  `tl.set` de texto por cuadro.
+- Las grabaciones de pantalla de macOS tienen un espacio raro (U+202F) antes de "PM" en el nombre: usá un glob
+  (`Screen*7.32*`) en vez de escribir el nombre a mano.
