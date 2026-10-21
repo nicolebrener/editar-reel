@@ -40,7 +40,8 @@ Los de `edl.json` están en segundos de cada clip original.
   "inserts": [ ... ]
 }
 ```
-`captions.style: "clean"` cambia el look: blanco en Inter ExtraBold y minúscula, destacados en itálica gruesa
+En `captions.json` un destacado puede llevar su propio color: `"emph": {"color": "#5AA9FF"}` (un color por
+sección). `captions.style: "clean"` cambia el look: blanco en Inter ExtraBold y minúscula, destacados en itálica gruesa
 de un solo color (`emphColor`, default `#FFE14D`) y entrada suave sin rebote. Va bien con `captions.py --max-words 1`
 (una palabra por vez). `emphSfx` le pone un sonido a los destacados (por defecto ninguno).
 
@@ -57,6 +58,7 @@ Todos llevan `type`, `start`, `end`. Opcional en todos: `sfx` (nombre del sonido
 | `profile` | `y`, `followers`, `posts`, `following`, `bio`, `avatar` | nombre y usuario salen de `config.json`; los números solo si la persona los da; `avatar` default `assets/avatar.jpg` (si no hay, iniciales) |
 | `webm` | `src`, `x`, `y`, `w`, `h` | animación con transparencia hecha aparte |
 | `scene` | `kind` (`chat`/`calendar`/`checklist`/`stat`/`text`) + los campos de cada una, `accent` | escena animada a pantalla completa que explica lo que se dice; detalles en `references/pantalla-completa.md` |
+| `light` | `color`, `x`, `y` (centro de la luz, 0-1), `size` (%), `blend` (`soft-light`/`overlay`), `strength` | luz de color sobre la pared de atrás (necesita `cutout.py`): tiñe el fondo, nunca la cara. Varias seguidas que se pisan 0.3 s hacen un fundido |
 | `anim` | `icon`, `pos` (`right`/`left`), `x`, `y`, `size`, `style` (`line`/`badge`), `label`, `color`, `accent` | ícono de línea que se dibuja solo y se mueve, para ilustrar lo que se dice; íconos y reglas en `references/animaciones.md` |
 | `number` | `text`, `x`, `y`, `size`, `stroke`, `color` | número gigante solo con contorno ("1", "2", "3") para cada punto de una lista; `x` = borde izquierdo de la zona donde se centra. Al costado de la cabeza, nunca sobre la cara |
 | `handle` | `spots` (`[{"t", "x", "y"}]`) | ícono de Instagram + @usuario como marca de agua que cambia de lugar; solo si la persona lo quiere |

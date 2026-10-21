@@ -62,3 +62,8 @@
   `tl.set` de texto por cuadro.
 - Las grabaciones de pantalla de macOS tienen un espacio raro (U+202F) antes de "PM" en el nombre: usá un glob
   (`Screen*7.32*`) en vez de escribir el nombre a mano.
+- **`mix-blend-mode` (CSS) sobre el video se ve en `snap.py` pero NO en el render**: HyperFrames compone los cuadros
+  del video por su cuenta. Por eso la `light` se hornea en el a-roll con ffmpeg (`lit_aroll` en `build.py`): luz
+  con `blend=overlay` sobre la pared y el recorte encima. Revisá la luz en un cuadro del render, no en las capturas.
+- En zsh, `$m[b]` dentro de un filtro de ffmpeg es un subíndice de array: escribí `${m}[b]`.
+- Con punch-in la cabeza ocupa casi todo el ancho: los íconos van a una esquina de arriba (y ~235), no al costado.

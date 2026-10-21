@@ -113,6 +113,25 @@ ICONS = {
         _p('line', class_='k', x1=64, y1=50, x2=64, y2=58) + '</g>',
         _p('line', class_='d', x1=40, y1=68, x2=60, y2=68),
     ]),
+    'trophy': ''.join([
+        _p('path', class_='d', d='M30 14 H70 V40 A20 20 0 0 1 30 40 Z'),
+        _p('path', class_='d', d='M30 22 H16 V28 A14 14 0 0 0 31 42'),
+        _p('path', class_='d', d='M70 22 H84 V28 A14 14 0 0 1 69 42'),
+        _p('line', class_='d', x1=50, y1=60, x2=50, y2=74),
+        _p('rect', class_='d', x=32, y=74, width=36, height=12, rx=3),
+        '<g class="m">' + _p('path', class_='k', d='M50 22 L53 29 L60 29.5 L54.5 34 L56.5 41 L50 37 L43.5 41 '
+                                                   'L45.5 34 L40 29.5 L47 29 Z') + '</g>',
+    ]),
+    'bolt': '<g class="m">' + _p('path', class_='d', d='M56 8 L22 56 H48 L42 92 L78 40 H52 Z') + '</g>',
+    'rocket': ''.join([
+        '<g class="m">',
+        _p('path', class_='d', d='M50 8 C66 20 72 40 68 64 H32 C28 40 34 20 50 8 Z'),
+        _p('circle', class_='d', cx=50, cy=36, r=8),
+        _p('path', class_='d', d='M32 50 L18 66 L32 66'),
+        _p('path', class_='d', d='M68 50 L82 66 L68 66'),
+        _p('path', class_='k', d='M42 72 C44 82 50 90 50 90 C50 90 56 82 58 72'),
+        '</g>',
+    ]),
 }
 
 # the loop each icon keeps while on screen: (target inside the icon, gsap vars, seconds per cycle).
@@ -128,4 +147,7 @@ MOTION = {
     'heart': ('.m', '{scale:1.12,svgOrigin:"50 55",ease:"sine.inOut"}', 0.3),
     'phone': ('.m', '{scale:1.3,svgOrigin:"70 14",ease:"sine.inOut"}', 0.3),
     'robot': ('.m', '{scaleY:0.15,svgOrigin:"50 54",ease:"power1.inOut"}', 0.12),
+    'trophy': ('.m', '{scale:1.35,svgOrigin:"50 32",ease:"sine.inOut"}', 0.35),
+    'bolt': ('.m', '{scale:1.1,svgOrigin:"50 50",ease:"power2.inOut"}', 0.2),
+    'rocket': ('.m', '{y:-8,ease:"sine.inOut"}', 0.3),
 }

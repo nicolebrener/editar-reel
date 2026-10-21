@@ -41,8 +41,21 @@ color, inserts que entran con "pop", texto escrito a mano, b-roll y capturas rea
 Van arriba de todo de la zona segura (y 228). La cabeza tapa solo la base de las letras (~20 %): se leen siempre
 y dan profundidad. No pongas títulos de más de ~10 letras por línea: el tamaño baja y pierden fuerza.
 
+## Color por sección (cuando la persona pide más color)
+Un color para cada parte del guion (cada marca, cada idea), el mismo en todo lo de esa parte: el destacado, el
+`number`, el detalle del `anim` y el acento de la `scene`. Al cambiar de tema cambia el color: eso solo ya se
+siente como edición. Colores claros y saturados que se lean sobre video (rosa `#FF6FAE`, verde `#5BE49B`, azul
+`#5AA9FF`, naranja `#FF8A4C`, violeta `#B794FF`, amarillo `#FFE14D`).
+
+## Luz de fondo
+Una sola `light` cálida (naranja `#FF8A3D`, `soft-light`) en todo el video, desde arriba a un costado, como una
+lámpara: le da calidez a la pared sin tocar la cara. **No cambies el color de la luz por sección**: un fondo que
+pasa de verde a amarillo a violeta se ve como un cambalache.
+
 ## Movimiento
-- Punch-ins alternados entre segmentos (1.0 / 1.35, desde el 4K original).
+- Punch-ins alternados entre segmentos (1.0 / 1.2-1.35, desde el 4K original), aunque el video venga de una sola
+  toma: cortá en el comienzo de una frase. Hacé el punch-in en las frases sin nada al costado de la cabeza: con
+  zoom la cabeza ocupa más y los números o tarjetas laterales terminan sobre el pelo.
 - Zoom rápido en cada destacado (`autoZoom`), zooms lentos a mano en momentos clave (`zooms`).
 - Flash blanco corto al cambiar de tema (`flashes`).
 

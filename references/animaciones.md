@@ -39,6 +39,9 @@ Son el insert `anim` de `reel.json` (los íconos están en `scripts/anims.py`).
 | `heart` | corazón que late | me encanta, favorito, clientes felices, comunidad |
 | `phone` | celular con aviso que late | celular, app, llamada, "desde el teléfono" |
 | `user` | persona | cliente, persona, equipo, perfil |
+| `trophy` | trofeo con estrella que late | competir, ganar, el mejor, número uno, liderar |
+| `bolt` | rayo que late | rápido, potencia, energía, al instante, "en segundos" |
+| `rocket` | cohete que despega | lanzar, lanzó, crecer, escalar, despegar, nuevo producto |
 
 ## Cuándo sí y cuándo no
 - **Sí** cuando la frase nombra algo que se puede dibujar (un objeto, una acción concreta) y es parte de la idea.
@@ -49,5 +52,6 @@ Son el insert `anim` de `reel.json` (los íconos están en `scripts/anims.py`).
   ni en el mismo momento que un `title`, un `number` o una tarjeta del mismo lado.
 - **Nunca sobre la cara.** Siempre al costado de la cabeza (`pos`), y alterná los lados si hay dos seguidas.
   Mirá `snaps.jpg`: si el ícono toca la cara, el pelo de adelante o la mano, movelo.
-- Mismo ícono, misma idea: si "WhatsApp" ya tuvo su `chat`, no lo repitas cada vez que se dice.
+- **Nunca el mismo ícono dos veces en un reel.** Si "IA" ya tuvo `sparkle`, la próxima vez usá otro que muestre
+  la idea de esa frase (`robot`, `bolt`, `trophy`...).
 - Si dudás entre dos íconos, elegí el que muestra la acción ("encuentra huecos" -> `search`, no `calendar`).

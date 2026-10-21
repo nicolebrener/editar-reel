@@ -181,7 +181,9 @@ def build_captions(c, caps, opts):
 
 def build_clean_caption(c, g, gid, dur, is_emph, text, opts, y0, size, emph_size):
     if is_emph:
-        col = opts.get('emphColor', '#FFE14D')
+        # a "#hex" in the group's emph wins (one colour per section); otherwise the reel's emphColor
+        own = g['emph'].get('color')
+        col = own if isinstance(own, str) and own.startswith('#') else opts.get('emphColor', '#FFE14D')
         fs = fit_size(text.upper(), emph_size, max_w=W - 2 * 100, ratio=0.74)
         words = ''.join(f'<span class="w ce ee" style="color:{col};font-size:{fs}px">{esc(w["t"].upper())}</span>'
                         for w in g['words'])
@@ -291,6 +293,50 @@ def ins_scene(c, it):
     c.sfx(it.get('sfx', 'whoosh'), it['start'] - 0.05, 0.6)
     for t in times:
         c.sfx(it.get('itemSfx', 'click'), t, 0.35)
+
+
+def lit_aroll(project, cfg, lights):
+    """aroll.mp4 with coloured lights baked onto the wall: each light is a soft-light glow over the frame, then the
+    cutout goes back on top, so the face keeps its real colour. Baked with ffmpeg because HyperFrames composites
+    video frames itself and ignores CSS blend modes (a CSS light shows in snapshots but not in the render).
+    Light: {"type": "light", "start", "end", "color", "x", "y" (0-1, the lamp), "size" (% of the frame height),
+            "strength" (0-1), "blend" (ffmpeg blend mode: overlay by default; softlight is much subtler)}"""
+    from PIL import Image
+    import numpy as np
+    cut = os.path.join(project, 'assets', 'cutout.webm')
+    if not os.path.exists(cut):
+        common.die('las luces de fondo necesitan assets/cutout.webm: correr cutout.py primero')
+    key = hashlib.md5(json.dumps([os.path.getmtime(os.path.join(project, 'aroll.mp4')), os.path.getmtime(cut),
+                                  lights], sort_keys=True).encode()).hexdigest()[:8]
+    name = f'assets/aroll-lit-{key}.mp4'
+    out = os.path.join(project, name)
+    if os.path.exists(out):
+        return name
+    for old in glob.glob(os.path.join(project, 'assets', 'aroll-lit-*.mp4')):
+        os.remove(old)
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    inputs, chain, last = [], '[0:v]format=gbrp[b0];', 'b0'
+    for k, it in enumerate(lights):
+        rgb = np.array([int(color(cfg, it.get('color'), '#FF8A3D').lstrip('#')[j:j + 2], 16) for j in (0, 2, 4)],
+                       np.float32)
+        r = it.get('size', 80) / 100 * H
+        d = np.hypot(xx - it.get('x', 0.78) * W, yy - it.get('y', 0.2) * H)
+        f = (np.clip(1 - d / r, 0, 1) ** 1.3 * it.get('strength', 0.9))[..., None]
+        # soft-light against mid grey changes nothing: the glow is grey -> colour, strongest at the lamp
+        img = (128 + (rgb - 128) * f).clip(0, 255).astype(np.uint8)
+        png = os.path.join(project, 'work', f'_light{k}.png')
+        Image.fromarray(img).save(png)
+        inputs += ['-loop', '1', '-i', png]
+        chain += (f'[{k + 2}:v]format=gbrp[l{k}];[{last}][l{k}]blend=all_mode={it.get('blend', 'overlay')}:shortest=1:'
+                  f"enable='between(t,{it['start']:.3f},{it['end']:.3f})'[b{k + 1}];")
+        last = f'b{k + 1}'
+    chain += f'[1:v]format=yuva420p[cut];[{last}]format=yuv420p[bg];[bg][cut]overlay=0:0:shortest=1,format=yuv420p[v]'
+    common.say('horneando la luz de fondo en el video (~1 min)')
+    common.run(['ffmpeg', '-v', 'error', '-y', '-i', os.path.join(project, 'aroll.mp4'), '-c:v', 'libvpx-vp9', '-i', cut]
+               + inputs + ['-filter_complex', chain, '-map', '[v]', '-map', '0:a', '-c:v', 'libx264', '-preset', 'fast',
+                           '-crf', '14', '-c:a', 'copy', '-color_primaries', 'bt709', '-color_trc', 'bt709',
+                           '-colorspace', 'bt709', out])
+    return name
 
 
 def ins_handle(c, it):
@@ -637,6 +683,8 @@ def main():
             ins_anim(c, it)
         elif t == 'scene':
             ins_scene(c, it)
+        elif t == 'light':
+            pass   # baked into the a-roll below (lit_aroll)
         elif t == 'handle':
             ins_handle(c, it)
         elif t == 'endcard':
@@ -645,7 +693,7 @@ def main():
             common.die(f'tipo de insert desconocido: {t}')
     cut_path = os.path.join(project, 'assets', 'cutout.webm')
     if needs_cutout and not os.path.exists(cut_path):
-        common.die('hay títulos "behind" pero falta assets/cutout.webm: correr cutout.py primero')
+        common.die('hay títulos "behind" o luces de fondo pero falta assets/cutout.webm: correr cutout.py primero')
 
     # camera moves: explicit zooms + a quick punch on every emphasis caption
     zooms = list(reel.get('zooms', []))
@@ -678,7 +726,9 @@ def main():
     css = ((CSS + scenes.CSS).replace('CAPC', col['caption']).replace('OUTLINE', shadow())
            .replace('ACC0', col['accents'][0]).replace('SL', f'{SAFE["left"]}px')
            .replace('SR', f'{W - SAFE["right_low"]}px'))
-    stage = [f'<video id="aroll" class="clip" src="aroll.mp4" data-start="0" data-duration="{total:.3f}" '
+    lights = [it for it in reel.get('inserts', []) if it['type'] == 'light']
+    aroll_src = lit_aroll(project, cfg, lights) if lights else 'aroll.mp4'
+    stage = [f'<video id="aroll" class="clip" src="{aroll_src}" data-start="0" data-duration="{total:.3f}" '
              f'data-track-index="0" playsinline data-has-audio="true"></video>']
     stage.append('<div class="layer" id="behind">' + ''.join(c.layers.pop(2, [])) + '</div>')
     if needs_cutout:
