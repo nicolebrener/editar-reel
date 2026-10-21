@@ -78,6 +78,9 @@ def mark_emphasis(words, phrases):
 def group(words, phrases, max_words, max_chars=18, gap=0.3):
     groups, cur = [], []
     marks = mark_emphasis(words, phrases)
+    for i, w in enumerate(words):
+        # the first word of a sentence: the only one the clean style may write in lowercase
+        w['ss'] = i == 0 or bool(BREAK_AFTER.search(words[i - 1]['w'])) and not words[i - 1]['w'].endswith(',')
 
     def flush():
         if cur:
@@ -127,7 +130,8 @@ def group(words, phrases, max_words, max_chars=18, gap=0.3):
         nxt = groups[n + 1][0]['s'] if n + 1 < len(groups) else g[-1]['e'] + 0.4
         end = min(nxt, g[-1]['e'] + 0.45)
         item = {'id': f'k{n + 1}', 'start': round(g[0]['s'], 3), 'end': round(max(end, g[0]['s'] + 0.25), 3),
-                'y': None, 'words': [{'t': clean(w['w']), 's': w['s'], 'e': w['e']} for w in g], 'emph': None}
+                'y': None, 'words': [dict({'t': clean(w['w']), 's': w['s'], 'e': w['e']}, **({'ss': True} if w.get('ss') else {}))
+                          for w in g], 'emph': None}
         item['words'] = [w for w in item['words'] if w['t']]
         if not item['words']:
             continue

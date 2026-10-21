@@ -134,7 +134,8 @@ class Comp:
 def build_captions(c, caps, opts):
     cfg = c.cfg
     y0 = opts.get('y', 1240)
-    # "clean": white Inter ExtraBold in lowercase, one emphasis colour in heavy italic, soft rise instead of a pop
+    # "clean": white Inter ExtraBold, one emphasis colour in heavy italic, soft rise instead of a pop. Only the first
+    # word of a sentence goes lowercase (captions.py marks it "ss"): brands, acronyms and names keep their capitals
     clean = opts.get('style') == 'clean'
     size = opts.get('size', 80 if clean else 92)
     emph_size = opts.get('emphSize', 130 if clean else 150)
@@ -186,7 +187,7 @@ def build_clean_caption(c, g, gid, dur, is_emph, text, opts, y0, size, emph_size
                         for w in g['words'])
     else:
         fs = fit_size(text, size, ratio=0.62)
-        words = ''.join(f'<span class="w ce" style="font-size:{fs}px">{esc(w["t"].lower())}</span>'
+        words = ''.join(f'<span class="w ce" style="font-size:{fs}px">{esc(w["t"].lower() if w.get("ss") else w["t"])}</span>'
                         for w in g['words'])
     y = g.get('y') or y0
     c.add(8, f'<div id="{gid}" class="clip cap" data-start="{g["start"]:.3f}" data-duration="{dur:.3f}" '
