@@ -80,7 +80,9 @@ h2:first-child{margin-top:4px}
   font-size:12px}
 .renders a{color:var(--tx)}
 .renders span{color:var(--mut)}
-@media (max-width:900px){main{grid-template-columns:1fr;height:auto}#left{height:78vh}
+@media (max-width:900px){main{grid-template-columns:1fr;height:auto}
+  #left{position:sticky;top:0;z-index:5;height:56vh;background:var(--bg);padding:10px 18px;
+    border-bottom:1px solid var(--line)}
   #panel{border-left:0;border-top:1px solid var(--line)}header h1{display:none}}
 </style>
 </head>
@@ -156,8 +158,10 @@ function status(text, cls = '') {
 let saveTimer = null;
 let saving = false;
 let pending = false;
+let focus = null;      // what the last change touched: the preview jumps to where it shows ("emph" / "caption")
 
-function change(mutate, delay = 0) {
+function change(mutate, delay = 0, what = null) {
+  if (what) focus = what;
   history.push(JSON.stringify(reel));
   if (history.length > 80) history.shift();
   mutate();
@@ -178,7 +182,9 @@ async function save() {
     if (!res.ok) throw new Error(res.log || 'error');
     values = res.values || {};
     drawPanel();
-    await reloadPreview();
+    const f = focus;
+    focus = null;
+    await reloadPreview(f);
     status('guardado en reel.json', 'ok');
   } catch (e) {
     status('error: ' + String(e.message).split('\n').pop().slice(0, 80), 'err');
@@ -228,7 +234,17 @@ function newFrame() {
 
 function player() { return frame && frame.contentWindow && frame.contentWindow.studio; }
 
-function reloadPreview() {
+// the moment that shows a change: the current one if it already has an emphasis / a caption on screen, else the
+// next one (or the first, near the end)
+function showTime(doc, t, what) {
+  const sel = what === 'emph' ? '.cap.emph, .cap:has(.e)' : '.cap';
+  const spans = [...doc.querySelectorAll(sel)].map((c) => [+c.dataset.start, +c.dataset.start + +c.dataset.duration]);
+  if (!spans.length || spans.some(([a, b]) => t >= a && t < b)) return t;
+  const next = spans.find(([a]) => a > t) || spans[0];
+  return Math.min(next[0] + 0.35, (next[0] + next[1]) / 2);
+}
+
+function reloadPreview(what = null) {
   return new Promise((resolve) => {
     const old = player();
     const f = newFrame();
@@ -240,7 +256,8 @@ function reloadPreview() {
       st.seek(t);
       await st.ready;
       const wasPlaying = old && old.playing;
-      const now = old ? old.time : t;
+      let now = old ? old.time : t;
+      if (what && !wasPlaying) now = showTime(f.contentDocument, now, what);
       st.seek(now);
       await st.settled();
       if (old) old.pause();
@@ -286,12 +303,13 @@ function applyPreset(p) {
     const cap = { ...(reel.captions || {}) };
     for (const k of S.options.presetKeys || []) delete cap[k];
     reel.captions = { ...cap, ...JSON.parse(JSON.stringify(p.captions || {})) };
-  });
+  }, 0, 'emph');
 }
 
 function control(ctl) {
   const v = value(ctl);
-  const set = (x, delay) => change(() => deepSet(reel, ctl.key, x), delay);
+  const what = /emph|pillar/i.test(ctl.key) ? 'emph' : ctl.key.startsWith('captions.') ? 'caption' : null;
+  const set = (x, delay) => change(() => deepSet(reel, ctl.key, x), delay, what);
   const label = (extra) => h('label', {}, ctl.label, extra ? h('em', {}, extra) : null);
   let body;
   if (ctl.type === 'font') {
