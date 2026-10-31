@@ -10,6 +10,9 @@ color, inserts que entran con "pop", texto escrito a mano, b-roll y capturas rea
 | Texto a mano (`scribble`, `title` con `"font": "hand"`) | **Caveat Bold** |
 | Tarjeta de perfil, flechas | **Inter** SemiBold / ExtraBold |
 
+Para elegir otra letra en los subtítulos o los títulos (`captions.font`, `emphFont`, `titleFont`, o el estudio):
+Montserrat Black, Poppins ExtraBold, Space Grotesk Bold, Anton, Bebas Neue y DM Serif Display, también OFL.
+
 ## Colores (`config.json` -> `colors`)
 - `caption` `#FFD60A`: amarillo, el color base de todos los subtítulos.
 - `accents`: rosa `#FF3EA5`, celeste `#00E0FF`, lima `#7CFF4F`, naranja `#FF7A00`. Los destacados y los títulos

@@ -5,7 +5,8 @@
         one line per result: number, id, duration, size. Vertical clips come first. Look at the sheet and pick.
     PY scripts/broll.py get <project> <id> --name agenda [--start 2] [--dur 3]
         Downloads that clip (the id as search printed it: pb123 for Pixabay, px123 for Pexels) and leaves it as
-        assets/broll/agenda.mp4 (1080x1920, 30 fps, SDR, no sound; a horizontal clip is cropped to the centre).
+        assets/broll/agenda.mp4 (2160x3840 if the source is 4K, else 1080x1920; 30 fps, SDR, no sound; a horizontal
+        clip is cropped to the centre).
     PY scripts/broll.py prep <project> <file> --name pantalla [--start 12] [--dur 4] [--fit] [--crop w:h:x:y]
         The same for a local clip (a screen recording, the person's own b-roll). --fit keeps the whole frame
         (for horizontal clips like a screen recording) over a blurred copy of itself instead of cropping.
@@ -71,7 +72,7 @@ def slug(s):
     return re.sub(r'[^a-z0-9]+', '-', s.lower()).strip('-')[:40] or 'clip'
 
 
-# each provider: search -> [{id, duration, width, height, thumb}], file_url(id) -> best mp4 for a 1080x1920 frame
+# each provider: search -> [{id, duration, width, height, thumb}], file_url(id) -> best mp4 for a 9:16 frame (4K when there is one)
 def pixabay_search(query, n):
     q = urllib.parse.urlencode({'key': key_for('pb'), 'q': query, 'per_page': max(3, min(n * 3, 200)),
                                 'safesearch': 'true'})
@@ -106,7 +107,7 @@ def pexels_file(vid):
              and f['height'] >= f['width'] and f.get('file_type') == 'video/mp4']
     if not files:
         common.die(f'el video {vid} no tiene una versión vertical en mp4')
-    big = [f for f in files if f['height'] >= H]
+    big = [f for f in files if f['height'] >= common.VH] or [f for f in files if f['height'] >= H]
     return (min(big, key=lambda f: f['height']) if big else max(files, key=lambda f: f['height']))['link']
 
 
@@ -157,9 +158,13 @@ def cmd_search(a):
 
 
 def normalize(src, dest, start, dur, fit, crop=None):
-    """Any clip -> 1080x1920, 30 fps, SDR Rec.709, no sound: crops to fill, or with fit, sits on a blurred copy.
-    crop "w:h:x:y" (pixels of the source) keeps only that part first: the readable bit of a screen recording."""
+    """Any clip -> 9:16, 30 fps, SDR Rec.709, no sound: crops to fill, or with fit, sits on a blurred copy.
+    crop "w:h:x:y" (pixels of the source) keeps only that part first: the readable bit of a screen recording.
+    A source with 4K detail in the 9:16 frame stays 2160x3840; anything smaller is kept at 1080x1920 (the 4K
+    render scales it up the same way, so a bigger file would add nothing)."""
     info = common.video_info(src)
+    sw, sh = (int(v) for v in crop.split(':')[:2]) if crop else (info['width'], info['height'])
+    W, H = (common.VW, common.VH) if min(sh, sw * 16 / 9) >= common.VH * 0.9 else (common.W, common.H)
     pre = ''
     if info['hdr']:
         lut = common.hdr_lut_path(common.load_config().get('hdrExposure', 0.62)).replace('\\', '/').replace(':', '\\:')
@@ -169,7 +174,7 @@ def normalize(src, dest, start, dur, fit, crop=None):
         pre += f'crop={crop},'
     if fit:
         vf = (f'{pre}split[a][b];[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},'
-              f'boxblur=40:2,eq=brightness=-0.08[bg];[b]scale={W - 60}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2')
+              f'boxblur=40:2,eq=brightness=-0.08[bg];[b]scale={W - W // 18}:-2[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2')
     else:
         vf = f'{pre}scale={W}:{H}:force_original_aspect_ratio=increase:flags=lanczos,crop={W}:{H}'
     vf += f',fps={FPS},setsar=1,format=yuv420p,setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709'

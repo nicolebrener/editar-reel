@@ -7,7 +7,7 @@ runs ffmpeg / ffprobe / HyperFrames, and knows the project layout:
         clips.json        clip id -> original file (originals are never modified)
         transcript.txt    what was said in every clip, with times (from ingest.py)
         edl.json          the segments Claude picks (clip, in, out, zoom)
-        aroll.mp4         the assembled talking-head cut, 1080x1920, 30 fps CFR, SDR
+        aroll.mp4         the assembled talking-head cut, 2160x3840 (4K), 30 fps CFR, SDR
         segments.json     where every segment sits on the final timeline (in frames)
         words.json        word-level transcript of aroll.mp4 (timeline time)
         captions.json     caption groups and emphasis (Claude edits this)
@@ -28,7 +28,8 @@ SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_PATH = os.path.join(SKILL_DIR, 'config.json')
 HF_VERSION = '0.8.34'
 FPS = 30
-W, H = 1080, 1920
+W, H = 1080, 1920      # composition size: every layout coordinate in reel.json / captions.json is in these pixels
+VW, VH = 2160, 3840    # video size: aroll, cutout and the render are 4K; HyperFrames renders the page at 2x
 
 # Instagram Reels safe zone (1080x1920). Nothing important outside it.
 SAFE = {'top': 220, 'bottom': 1470, 'left': 35, 'right': 1045, 'right_low': 980, 'right_low_from': 1155}

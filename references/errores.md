@@ -48,7 +48,10 @@
 - Varios `fromTo` sobre el mismo elemento (el flash): `immediateRender:false` y un `tl.set` inicial en 0.
 - Las letras de un título van dentro de un `span` por palabra (`.tw`): si no, el título parte palabras al medio.
 - `nth-of-type` cuenta etiquetas, no clases: los chips llevan clase con índice (`.c0`, `.a1`).
-- El render tarda bastante más que el video (varios minutos para 1 min con cutout): siempre en segundo plano.
+- El render tarda bastante más que el video (varios minutos para 1 min con cutout, más en 4K): siempre en segundo plano.
+- Un render sin `--resolution portrait-4k` sale en 1080 aunque `aroll.mp4` sea 4K: `check.py` lo avisa.
+- Proyectos armados antes del 4K tienen `aroll.mp4` en 1080: para un render 4K de verdad, correr `assemble.py` otra
+  vez (y `cutout.py` si hay títulos detrás). Con el `aroll` viejo el render sale 4K pero el video es 1080 escalado.
 
 ## Contenido
 - Las grabaciones de pantalla suelen mostrar nombres completos, teléfonos y chats de otras personas. Recortá.

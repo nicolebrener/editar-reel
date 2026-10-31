@@ -43,7 +43,25 @@ Los de `edl.json` están en segundos de cada clip original.
 En `captions.json` un destacado puede llevar su propio color: `"emph": {"color": "#5AA9FF"}` (un color por
 sección). `captions.style: "clean"` cambia el look: blanco en Inter ExtraBold y minúscula, destacados en itálica gruesa
 de un solo color (`emphColor`, default `#FFE14D`) y entrada suave sin rebote. Va bien con `captions.py --max-words 1`
-(una palabra por vez). `emphSfx` le pone un sonido a los destacados (por defecto ninguno).
+(una palabra por vez).
+
+### El look de los subtítulos (`captions`)
+`style` (`pop` o `clean`) pone la base; cualquiera de estas claves la pisa. Es lo que cambia el estudio
+(`scripts/studio.py`), así que un reel tocado ahí puede traer cualquiera:
+
+| Clave | Valores | pop / clean |
+|---|---|---|
+| `font`, `emphFont` | `cal`, `inter`, `montserrat`, `poppins`, `grotesk`, `anton`, `bebas`, `dmserif`, `caveat` | `cal` / `inter` |
+| `color` | `"#hex"` de los subtítulos (`null` = `config.json` `caption`) | amarillo / `#FFFFFF` |
+| `emphColor` | `"#hex"` para todos los destacados, `null` = rotan los `accents` | `null` / `#FFE14D` |
+| `case`, `emphCase` | `asis` (como se dijo), `auto` (minúscula al empezar la frase), `upper`, `lower` | `asis`, `upper` / `auto`, `upper` |
+| `emphItalic` | `true` / `false` | `false` / `true` |
+| `shadow` | `light`, `soft`, `strong`, `box` (caja oscura detrás), `none`. Nunca contorno | `soft` / `light` |
+| `anim` | `pop` (rebote e inclinación), `soft` (sube suave), `none` | `pop` / `soft` |
+| `emphSfx` | `pop`, `click`, `ding` o `null` | `pop` / `null` |
+| `size`, `emphSize`, `y` | px | 92, 150, 1240 / 80, 130, 1240 |
+
+Arriba de `captions`, `titleFont` (las mismas fuentes) cambia la de los títulos detrás de la cabeza.
 
 ### Tipos de insert
 Todos llevan `type`, `start`, `end`. Opcional en todos: `sfx` (nombre del sonido, o `null` para ninguno).

@@ -72,18 +72,24 @@ def clipped_cutout(project, clips):
     src = os.path.join(project, 'assets', 'cutout.webm')
     if not clips:
         return 'assets/cutout.webm'
-    key = hashlib.md5(json.dumps([os.path.getmtime(src), clips]).encode()).hexdigest()[:8]
+    key = hashlib.md5(json.dumps(['v2', os.path.getmtime(src), clips]).encode()).hexdigest()[:8]
     name = f'assets/cutout-{key}.webm'
     out = os.path.join(project, name)
     if not os.path.exists(out):
         for old in glob.glob(os.path.join(project, 'assets', 'cutout-*.webm')):
             os.remove(old)
-        boxes = ','.join(f"drawbox=x=0:y=0:w=iw:h={y}:color=black@0:t=fill:replace=1:"
+        # y is in composition pixels; the cutout can be 4K. Outside the title windows the cutout goes fully
+        # transparent: the person comes from aroll itself (no second compression on the face)
+        k = media_size(src)[1] / H
+        boxes = ','.join(f"drawbox=x=0:y=0:w=iw:h={round(y * k)}:color=black@0:t=fill:replace=1:"
                          f"enable='between(t,{s:.3f},{e:.3f})'" for s, e, y in clips)
+        inside = '+'.join(f'between(t,{s:.3f},{e:.3f})' for s, e, _ in clips)
+        boxes += f",drawbox=x=0:y=0:w=iw:h=ih:color=black@0:t=fill:replace=1:enable='not({inside})'"
         common.say('preparando el recorte para los títulos detrás de la cabeza (~1 min)')
         common.run(['ffmpeg', '-v', 'error', '-y', '-c:v', 'libvpx-vp9', '-i', src, '-vf',
                     f'format=yuva420p,{boxes}', '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-b:v', '0',
-                    '-crf', '28', '-row-mt', '1', '-deadline', 'good', '-cpu-used', '4', '-an', out])
+                    '-crf', '20', '-row-mt', '1', '-tile-columns', '2', '-deadline', 'good', '-cpu-used', '4',
+                    '-an', out])
     return name
 
 
@@ -131,14 +137,82 @@ class Comp:
 
 
 # ---------------------------------------------------------------- captions
-def build_captions(c, caps, opts):
+# Fonts for captions and titles (all OFL, in assets/fonts). ratio = average width of a lowercase letter in em, so
+# fit_size can keep the longest word inside the frame; capitals run ~23 % wider (UPPER)
+FONTS = {
+    'cal':        {'family': "'Cal Sans'", 'weight': 400, 'ratio': 0.60, 'ls': '0.5px'},
+    'inter':      {'family': "'Inter'", 'weight': 800, 'ratio': 0.62, 'ls': '-0.5px'},
+    'montserrat': {'family': "'Montserrat'", 'weight': 900, 'ratio': 0.68, 'ls': '-0.5px'},
+    'poppins':    {'family': "'Poppins'", 'weight': 800, 'ratio': 0.66, 'ls': '-0.5px'},
+    'grotesk':    {'family': "'Space Grotesk'", 'weight': 700, 'ratio': 0.60, 'ls': '-0.5px'},
+    'anton':      {'family': "'Anton'", 'weight': 400, 'ratio': 0.46, 'ls': '0.5px'},
+    'bebas':      {'family': "'Bebas Neue'", 'weight': 400, 'ratio': 0.40, 'ls': '1px'},
+    'dmserif':    {'family': "'DM Serif Display'", 'weight': 400, 'ratio': 0.55, 'ls': '0px'},
+    'caveat':     {'family': "'Caveat'", 'weight': 700, 'ratio': 0.42, 'ls': '0px'},
+}
+UPPER = 0.74 / 0.60
+# no outline ever: a soft shadow, or a dark box behind the words
+SHADOWS = {'soft': '0 4px 14px rgba(0,0,0,.55),0 2px 4px rgba(0,0,0,.45)',
+           'light': '0 3px 18px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3)',
+           'strong': '0 6px 26px rgba(0,0,0,.8),0 2px 6px rgba(0,0,0,.7)',
+           'none': 'none', 'box': 'none'}
+# the two base looks; every key can be overridden in reel.json "captions" (the studio does exactly that)
+STYLES = {
+    'pop':   {'font': 'cal', 'emphFont': 'cal', 'size': 92, 'emphSize': 150, 'color': None, 'emphColor': None,
+              'case': 'asis', 'emphCase': 'upper', 'emphItalic': False, 'shadow': 'soft', 'anim': 'pop',
+              'emphSfx': 'pop', 'y': 1240},
+    'clean': {'font': 'inter', 'emphFont': 'inter', 'size': 80, 'emphSize': 130, 'color': '#FFFFFF',
+              'emphColor': '#FFE14D', 'case': 'auto', 'emphCase': 'upper', 'emphItalic': True, 'shadow': 'light',
+              'anim': 'soft', 'emphSfx': None, 'y': 1240},
+}
+
+
+def caption_style(opts, cfg):
+    """The resolved caption look: the base style plus whatever reel.json overrides.
+    color None = config colors.caption; emphColor None = emphasis colours rotate through config colors.accents."""
+    st = dict(STYLES['clean' if opts.get('style') == 'clean' else 'pop'])
+    st.update({k: v for k, v in opts.items() if k in st})
+    st['style'] = 'clean' if opts.get('style') == 'clean' else 'pop'
+    st['color'] = st['color'] or cfg['colors']['caption']
+    for k in ('font', 'emphFont'):
+        if st[k] not in FONTS:
+            common.die(f'captions.{k}: no existe "{st[k]}" (hay: {", ".join(FONTS)})')
+    return st
+
+
+def studio_values(reel, cfg):
+    """What every studio control is set to, defaults included (scripts/studio.py, assets/studio/options.json)."""
+    st = caption_style(reel.get('captions', {}), cfg)
+    vals = {f'captions.{k}': v for k, v in st.items()}
+    vals['captions.emphColor'] = reel.get('captions', {}).get('emphColor', st['emphColor'])
+    vals.update({'titleFont': reel.get('titleFont', 'cal'), 'autoZoom': reel.get('autoZoom', True),
+                 'sfx.gain': reel.get('sfx', {}).get('gain', 1.0)})
+    return vals
+
+
+def cased(t, mode, sentence_start=False):
+    if mode == 'upper':
+        return t.upper()
+    if mode == 'lower' or (mode == 'auto' and sentence_start):
+        return t.lower()
+    return t
+
+
+def caption_css(st):
+    f, ef = FONTS[st['font']], FONTS[st['emphFont']]
+    css = (f".w{{display:inline-block;font-family:{f['family']},sans-serif;font-weight:{f['weight']};line-height:1.02;"
+           f"color:{st['color']};letter-spacing:{f['ls']};text-shadow:{SHADOWS.get(st['shadow'], SHADOWS['soft'])}}}\n"
+           f".w.e{{font-family:{ef['family']},sans-serif;font-weight:{ef['weight']};"
+           f"line-height:{0.95 if st['anim'] == 'pop' else 1};"
+           f"letter-spacing:{ef['ls']};font-style:{'italic' if st['emphItalic'] else 'normal'}}}\n")
+    if st['shadow'] == 'box':
+        css += '.cap-in{background:rgba(12,12,12,.62);border-radius:24px;padding:4px 28px 12px}\n'
+    return css
+
+
+def build_captions(c, caps, st):
     cfg = c.cfg
-    y0 = opts.get('y', 1240)
-    # "clean": white Inter ExtraBold, one emphasis colour in heavy italic, soft rise instead of a pop. Only the first
-    # word of a sentence goes lowercase (captions.py marks it "ss"): brands, acronyms and names keep their capitals
-    clean = opts.get('style') == 'clean'
-    size = opts.get('size', 80 if clean else 92)
-    emph_size = opts.get('emphSize', 130 if clean else 150)
+    pop = st['anim'] == 'pop'
     for k, g in enumerate(caps):
         gid = f'cap-{esc(g["id"])}'
         end = g['end']
@@ -146,64 +220,48 @@ def build_captions(c, caps, opts):
             end = min(end, caps[k + 1]['start'] - 1 / common.FPS)
         dur = max(0.1, end - g['start'])
         is_emph = bool(g.get('emph'))
-        text = ' '.join(w['t'] for w in g['words'])
-        if clean:
-            build_clean_caption(c, g, gid, dur, is_emph, text, opts, y0, size, emph_size)
-            continue
         if is_emph:
-            col = color(cfg, g['emph'].get('color'))
-            # capitals run wider (~0.74 em) and the group tilts and grows 6 %: keep it inside the safe zone
-            fs = fit_size(text.upper(), emph_size, max_w=W - 2 * 100, ratio=0.74)
-            y = g.get('y') or (y0 - 30)
-            words = ''.join(f'<span class="w e" style="color:{col};font-size:{fs}px">{esc(w["t"].upper())}</span>'
-                            for w in g['words'])
+            # a "#hex" in the group's emph wins (one colour per section), then the reel's emphColor, then the
+            # accents in rotation
+            own = g['emph'].get('color')
+            col = own if isinstance(own, str) and own.startswith('#') else (st['emphColor'] or color(cfg, own))
+            texts = [cased(w['t'], st['emphCase']) for w in g['words']]
+            ratio = FONTS[st['emphFont']]['ratio'] * (UPPER if st['emphCase'] == 'upper' else 1)
+            # the emphasis tilts and grows 6 %: keep it inside the safe zone
+            fs = fit_size(' '.join(texts), st['emphSize'], max_w=W - 2 * 100, ratio=ratio)
+            y = g.get('y') or (st['y'] - (30 if pop else 0))
+            words = ''.join(f'<span class="w e" style="color:{col};font-size:{fs}px">{esc(t)}</span>' for t in texts)
         else:
-            fs = fit_size(text, size)
-            y = g.get('y') or y0
-            words = ''.join(f'<span class="w" style="font-size:{fs}px">{esc(w["t"])}</span>' for w in g['words'])
+            texts = [cased(w['t'], st['case'], w.get('ss')) for w in g['words']]
+            ratio = FONTS[st['font']]['ratio'] * (UPPER if st['case'] == 'upper' else 1)
+            fs = fit_size(' '.join(texts), st['size'], ratio=ratio)
+            y = g.get('y') or st['y']
+            words = ''.join(f'<span class="w" style="font-size:{fs}px">{esc(t)}</span>' for t in texts)
         c.add(8, f'<div id="{gid}" class="clip cap" data-start="{g["start"]:.3f}" data-duration="{dur:.3f}" '
                  f'data-track-index="8" style="top:{y}px"><div class="cap-in">{words}</div></div>')
         rot = ((k * 37) % 9 - 4) if is_emph else 0     # deterministic small tilt per emphasis
         for i, w in enumerate(g['words']):
             sel = f'#{gid} .w:nth-child({i + 1})'
             t = max(g['start'], min(w['s'], g['end'] - 0.1))
-            if is_emph:
+            if st['anim'] == 'none':
+                c.anim(f'tl.fromTo("{sel}",{{opacity:0}},{{opacity:1,duration:0.04}},{t:.3f});')
+            elif pop and is_emph:
                 c.anim(f'tl.fromTo("{sel}",{{scale:0.25,rotation:{rot - 10},opacity:0}},'
                        f'{{scale:1,rotation:{rot},opacity:1,duration:0.24,ease:"back.out(3)"}},{t:.3f});')
-            else:
+            elif pop:
                 c.anim(f'tl.fromTo("{sel}",{{scale:0.6,y:24,opacity:0}},'
                        f'{{scale:1,y:0,opacity:1,duration:0.13,ease:"back.out(2.4)"}},{t:.3f});')
-        if is_emph:
+            elif is_emph:
+                c.anim(f'tl.fromTo("{sel}",{{scale:0.82,opacity:0}},'
+                       f'{{scale:1,opacity:1,duration:0.2,ease:"power3.out"}},{t:.3f});')
+            else:
+                c.anim(f'tl.fromTo("{sel}",{{y:14,opacity:0}},{{y:0,opacity:1,duration:0.12,ease:"power2.out"}},'
+                       f'{t:.3f});')
+        if is_emph and pop:
             c.anim(f'tl.to("#{gid} .cap-in",{{scale:1.06,duration:{max(0.2, dur - 0.25):.3f},ease:"sine.inOut"}},'
                    f'{g["start"] + 0.24:.3f});')
-            c.sfx('pop', g['start'])
-
-
-def build_clean_caption(c, g, gid, dur, is_emph, text, opts, y0, size, emph_size):
-    if is_emph:
-        # a "#hex" in the group's emph wins (one colour per section); otherwise the reel's emphColor
-        own = g['emph'].get('color')
-        col = own if isinstance(own, str) and own.startswith('#') else opts.get('emphColor', '#FFE14D')
-        fs = fit_size(text.upper(), emph_size, max_w=W - 2 * 100, ratio=0.74)
-        words = ''.join(f'<span class="w ce ee" style="color:{col};font-size:{fs}px">{esc(w["t"].upper())}</span>'
-                        for w in g['words'])
-    else:
-        fs = fit_size(text, size, ratio=0.62)
-        words = ''.join(f'<span class="w ce" style="font-size:{fs}px">{esc(w["t"].lower() if w.get("ss") else w["t"])}</span>'
-                        for w in g['words'])
-    y = g.get('y') or y0
-    c.add(8, f'<div id="{gid}" class="clip cap" data-start="{g["start"]:.3f}" data-duration="{dur:.3f}" '
-             f'data-track-index="8" style="top:{y}px"><div class="cap-in">{words}</div></div>')
-    for i, w in enumerate(g['words']):
-        sel = f'#{gid} .w:nth-child({i + 1})'
-        t = max(g['start'], min(w['s'], g['end'] - 0.1))
-        if is_emph:
-            c.anim(f'tl.fromTo("{sel}",{{scale:0.82,opacity:0}},'
-                   f'{{scale:1,opacity:1,duration:0.2,ease:"power3.out"}},{t:.3f});')
-        else:
-            c.anim(f'tl.fromTo("{sel}",{{y:14,opacity:0}},{{y:0,opacity:1,duration:0.12,ease:"power2.out"}},{t:.3f});')
-    if is_emph and opts.get('emphSfx'):
-        c.sfx(opts['emphSfx'], g['start'], 0.6)
+        if is_emph and st['emphSfx']:
+            c.sfx(st['emphSfx'], g['start'], 1.0 if pop else 0.6)
 
 
 # ---------------------------------------------------------------- inserts
@@ -314,13 +372,14 @@ def lit_aroll(project, cfg, lights):
         return name
     for old in glob.glob(os.path.join(project, 'assets', 'aroll-lit-*.mp4')):
         os.remove(old)
-    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    vw, vh = media_size(os.path.join(project, 'aroll.mp4'))   # the light is drawn at the video's own size (4K)
+    yy, xx = np.mgrid[0:vh, 0:vw].astype(np.float32)
     inputs, chain, last = [], '[0:v]format=gbrp[b0];', 'b0'
     for k, it in enumerate(lights):
         rgb = np.array([int(color(cfg, it.get('color'), '#FF8A3D').lstrip('#')[j:j + 2], 16) for j in (0, 2, 4)],
                        np.float32)
-        r = it.get('size', 80) / 100 * H
-        d = np.hypot(xx - it.get('x', 0.78) * W, yy - it.get('y', 0.2) * H)
+        r = it.get('size', 80) / 100 * vh
+        d = np.hypot(xx - it.get('x', 0.78) * vw, yy - it.get('y', 0.2) * vh)
         f = (np.clip(1 - d / r, 0, 1) ** 1.3 * it.get('strength', 0.9))[..., None]
         # soft-light against mid grey changes nothing: the glow is grey -> colour, strongest at the lamp
         img = (128 + (rgb - 128) * f).clip(0, 255).astype(np.uint8)
@@ -546,6 +605,18 @@ CSS = """
 @font-face{font-family:'Caveat';font-weight:700;src:url('assets/fonts/Caveat-Bold.ttf') format('truetype')}
 @font-face{font-family:'Inter';font-weight:600;src:url('assets/fonts/Inter-SemiBold.ttf') format('truetype')}
 @font-face{font-family:'Inter';font-weight:800;src:url('assets/fonts/Inter-ExtraBold.ttf') format('truetype')}
+@font-face{font-family:'Montserrat';font-weight:100 900;src:url('assets/fonts/Montserrat-Variable.ttf') format('truetype')}
+@font-face{font-family:'Montserrat';font-weight:100 900;font-style:italic;
+  src:url('assets/fonts/Montserrat-Italic-Variable.ttf') format('truetype')}
+@font-face{font-family:'Poppins';font-weight:800;src:url('assets/fonts/Poppins-ExtraBold.ttf') format('truetype')}
+@font-face{font-family:'Poppins';font-weight:800;font-style:italic;
+  src:url('assets/fonts/Poppins-ExtraBoldItalic.ttf') format('truetype')}
+@font-face{font-family:'Space Grotesk';font-weight:300 700;src:url('assets/fonts/SpaceGrotesk-Variable.ttf') format('truetype')}
+@font-face{font-family:'Anton';src:url('assets/fonts/Anton-Regular.ttf') format('truetype')}
+@font-face{font-family:'Bebas Neue';src:url('assets/fonts/BebasNeue-Regular.ttf') format('truetype')}
+@font-face{font-family:'DM Serif Display';src:url('assets/fonts/DMSerifDisplay-Regular.ttf') format('truetype')}
+@font-face{font-family:'DM Serif Display';font-style:italic;
+  src:url('assets/fonts/DMSerifDisplay-Italic.ttf') format('truetype')}
 html,body{margin:0;background:#000;overflow:hidden}
 #root{position:relative;width:100%;height:100%;overflow:hidden;background:#000;font-family:'Inter',sans-serif}
 #stage{position:absolute;inset:0;transform-origin:50% 35%}
@@ -553,12 +624,6 @@ html,body{margin:0;background:#000;overflow:hidden}
 .layer{position:absolute;inset:0;pointer-events:none}
 .cap{position:absolute;left:SL;right:SR;display:flex;justify-content:center}
 .cap-in{display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;gap:0 22px;text-align:center}
-.w{display:inline-block;font-family:'Cal Sans',sans-serif;line-height:1.02;color:CAPC;letter-spacing:0.5px;
-  text-shadow:OUTLINE}
-.w.e{line-height:0.95;letter-spacing:1px}
-.w.ce{font-family:'Inter',sans-serif;font-weight:800;color:#fff;letter-spacing:-0.5px;
-  text-shadow:0 3px 18px rgba(0,0,0,.35),0 1px 3px rgba(0,0,0,.3)}
-.w.ee{font-style:italic;line-height:1;letter-spacing:-1px}
 .num{position:absolute;right:0;display:flex;justify-content:center;font-family:'Inter',sans-serif;
   font-weight:800;line-height:1;color:transparent;filter:drop-shadow(0 6px 20px rgba(0,0,0,.25))}
 .anim{position:absolute;display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -584,7 +649,7 @@ html,body{margin:0;background:#000;overflow:hidden}
 .endc-logo svg{width:150px;height:150px}
 .endc-h{font-family:'Inter',sans-serif;font-weight:800;font-size:40px;letter-spacing:1px}
 .title{position:absolute;left:30px;right:30px;display:flex;justify-content:center;text-align:center}
-.title.cal{font-family:'Cal Sans',sans-serif;line-height:0.92;text-shadow:0 10px 30px rgba(0,0,0,.25)}
+.title.cal{font-family:TITLEF;line-height:0.92;text-shadow:0 10px 30px rgba(0,0,0,.25)}
 .title.hand{font-family:'Caveat',cursive;font-weight:700;line-height:0.9}
 .title-in{display:flex;flex-wrap:wrap;justify-content:center;gap:0 0.25em;padding:0.08em 0}
 .tw{display:inline-flex;white-space:nowrap;overflow:hidden;padding:0.06em 0.02em}
@@ -658,7 +723,8 @@ def main():
         common.die('falta assets/vendor/gsap.min.js: correr scripts/setup.py')
 
     c = Comp(cfg, project, safe)
-    build_captions(c, caps, reel.get('captions', {}))
+    cap_style = caption_style(reel.get('captions', {}), cfg)
+    build_captions(c, caps, cap_style)
 
     needs_cutout = False
     for it in sorted(reel.get('inserts', []), key=lambda x: x['start']):
@@ -723,7 +789,9 @@ def main():
                        f'data-track-index="30" data-volume="{vol}" data-automation=\'{fade}\'></audio>')
 
     col = cfg['colors']
-    css = ((CSS + scenes.CSS).replace('CAPC', col['caption']).replace('OUTLINE', shadow())
+    tf = FONTS.get(reel.get('titleFont', 'cal')) or common.die(f'titleFont: hay {", ".join(FONTS)}')
+    css = ((CSS + caption_css(cap_style) + scenes.CSS).replace('CAPC', col['caption']).replace('OUTLINE', shadow())
+           .replace('TITLEF', f"{tf['family']},sans-serif;font-weight:{tf['weight']}")
            .replace('ACC0', col['accents'][0]).replace('SL', f'{SAFE["left"]}px')
            .replace('SR', f'{W - SAFE["right_low"]}px'))
     lights = [it for it in reel.get('inserts', []) if it['type'] == 'light']

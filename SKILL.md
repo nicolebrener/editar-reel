@@ -1,6 +1,6 @@
 ---
 name: editar-reel
-description: Edita reels verticales de Instagram/TikTok de punta a punta a partir de clips crudos de celular, en español. Elige la mejor toma de cada frase, corta silencios y trabadas, hace punch-ins desde 4K, convierte el HDR del iPhone, pone subtítulos Cal Sans amarillos de 1 a 3 palabras con las palabras clave grandes y de color, títulos detrás de la cabeza, tarjetas de b-roll, stickers, texto a mano, pasos animados, la tarjeta de perfil para el CTA y efectos de sonido, todo dentro de la zona segura de Reels. Usar con /editar-reel o frases como "editame estos clips", "armá el reel", "editá el video de la carpeta X", "cortá esto en un reel".
+description: Edita reels verticales de Instagram/TikTok de punta a punta a partir de clips crudos de celular, en español. Elige la mejor toma de cada frase, corta silencios y trabadas, hace punch-ins desde 4K, convierte el HDR del iPhone, pone subtítulos Cal Sans amarillos de 1 a 3 palabras con las palabras clave grandes y de color, títulos detrás de la cabeza, tarjetas de b-roll, stickers, texto a mano, pasos animados, la tarjeta de perfil para el CTA y efectos de sonido, todo dentro de la zona segura de Reels, renderizado en 4K. Tiene un estudio en vivo en el navegador para elegir estilo, tipografías, colores y animación mirando el reel. Usar con /editar-reel o frases como "editame estos clips", "armá el reel", "editá el video de la carpeta X", "cortá esto en un reel", "abrime el estudio", "quiero elegir la letra y los colores".
 ---
 
 # /editar-reel
@@ -16,7 +16,7 @@ Antes de armar el primer reel de la sesión leé `references/estilo.md` (el look
 (qué ícono animado va con qué palabras), `references/pantalla-completa.md` (cortes que explican) y
 `references/errores.md`
 (cada trampa en la que ya caímos). `references/plan.md` tiene el formato completo de `edl.json`, `captions.json`
-y `reel.json`.
+y `reel.json`. Todo sale en 4K (2160x3840): no hay que hacer nada para que no pierda calidad.
 
 ## Paso 0: setup (la primera vez, y si algo falla)
 
@@ -111,16 +111,29 @@ PY SK/scripts/snap.py <proyecto> auto    # o tiempos: 3.3,8.4,17.2
 Mirá `work/snaps.jpg`: nada tapa la cara, todo se lee, nada sale de la zona roja, los títulos detrás de la
 cabeza se ven al menos 70 %. Corregí y repetí.
 
-### 7. Render y control
+### 6b. Estudio en vivo (si la persona quiere elegir el look, o pide "abrime el estudio")
+```bash
+PY SK/scripts/studio.py <proyecto>       # en segundo plano; imprime "ESTUDIO http://127.0.0.1:4321/"
+```
+Abrí esa URL en el navegador integrado (o pasásela). La persona ve el reel y elige estilo base, tipografías,
+colores, mayúsculas, sombra o caja, tamaño, altura, animación, zoom y sonidos; cada cambio se guarda en
+`reel.json` -> `captions` (y `titleFont`, `autoZoom`, `sfx`) y se reconstruye solo. Desde ahí también puede
+renderizar en 4K. **Mientras el estudio está abierto, releé `reel.json` antes de tocarlo**: la persona lo cambia
+desde la página y no pises lo que eligió. Las opciones del estudio están en `assets/studio/options.json`.
+
+### 7. Render en 4K y control
 ```bash
 PY SK/scripts/build.py <proyecto>        # sin --safe
-cd <proyecto> && HF render -o renders/<slug>-vN.mp4 --quality high     # en segundo plano: tarda varios minutos
+cd <proyecto> && HF render -o renders/<slug>-vN.mp4 --quality high --resolution portrait-4k --crf 14   # en segundo plano
 PY SK/scripts/check.py <proyecto> renders/<slug>-vN.mp4
 ```
-Mirá `work/cut_check.jpg` (cada par antes|después muestra el plano nuevo limpio) y el audio (pico entre -1 y -3 dB).
+El render sale en 2160x3840: `aroll.mp4`, el recorte y el b-roll de stock en 4K ya son 4K, y `--resolution
+portrait-4k` dibuja el texto y los gráficos a doble resolución. Nunca renderices sin `--resolution portrait-4k`
+(`check.py` avisa). Mirá `work/cut_check.jpg` (cada par antes|después muestra el plano nuevo limpio) y el audio
+(pico entre -1 y -3 dB).
 
 ### 8. Entregar
-Pasale la copia `-celu.mp4` y el render completo. Contale en criollo qué hiciste y qué decisiones son suyas
+Pasale la copia `-celu.mp4` (1080) y el render completo en 4K (es el que se sube). Contale en criollo qué hiciste y qué decisiones son suyas
 (tomas dudosas, palabras que no se entienden, datos que faltan). En cada vuelta de notas: cambiá JSON, build,
 render como `vN+1`. Nunca pises versiones.
 
@@ -133,3 +146,4 @@ render como `vN+1`. Nunca pises versiones.
 | "más/menos efectos de sonido" | `reel.json` `sfx.gain` (0 apaga todo) |
 | "muy oscuro / muy claro" | `config.json` `hdrExposure` (0.5 a 0.75) -> `assemble.py` |
 | "sin zoom en las palabras" | `reel.json` `"autoZoom": false` |
+| "quiero ver otras letras / colores / estilos" | el estudio (paso 6b), o `reel.json` `captions` (`references/plan.md`) |

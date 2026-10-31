@@ -9,7 +9,7 @@ edl.json is a list of segments, in order:
     cx / cy  = centre of the crop, 0-1 of the frame (0.5, 0.42 keeps the face centred)
 
 Writes:
-    aroll.mp4        1080x1920, 30 fps constant, SDR Rec.709, loudness -14 LUFS
+    aroll.mp4        2160x3840 (4K), 30 fps constant, SDR Rec.709, loudness -14 LUFS
     segments.json    every segment with its exact start/end frame on the final timeline
     words.json       the words of every segment, moved to timeline time (for captions)
 """
@@ -21,7 +21,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
-FPS, W, H = common.FPS, common.W, common.H
+FPS, W, H = common.FPS, common.VW, common.VH
 
 
 def crop_box(cw_src, ch_src, zoom, cx, cy):
@@ -59,7 +59,7 @@ def render_segment(project, clips, seg, idx, exposure):
     if n <= 0:
         common.die(f'segmento {seg.get("id")}: out tiene que ser mayor que in')
     dur = n / FPS
-    key = json.dumps(['v2', clip['path'], seg['in'], n, seg.get('zoom', 1), seg.get('cx', .5), seg.get('cy', .5),
+    key = json.dumps(['v3', clip['path'], seg['in'], n, seg.get('zoom', 1), seg.get('cx', .5), seg.get('cy', .5),
                       exposure], sort_keys=True)
     out = os.path.join(project, 'work', 'segs', f'{idx:02d}_{hashlib.md5(key.encode()).hexdigest()[:8]}.mp4')
     if os.path.exists(out):
@@ -108,7 +108,7 @@ def main():
           '[a0]highpass=f=70,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[a]')
     out = os.path.join(project, 'aroll.mp4')
     cmd += ['-filter_complex', fc, '-map', '[v]', '-map', '[a]', '-r', str(FPS),
-            '-c:v', 'libx264', '-preset', 'medium', '-crf', '16', '-pix_fmt', 'yuv420p',
+            '-c:v', 'libx264', '-preset', 'medium', '-crf', '14', '-pix_fmt', 'yuv420p',
             '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709',
             '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', out]
     common.run(cmd)

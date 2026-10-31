@@ -5,7 +5,7 @@
 Writes, next to the render:
     work/cut_check.jpg     for every cut: the last frame before it and the first frame after it.
                            Every "after" frame must show the new shot cleanly (no leftover frame, no black).
-    <name>-celu.mp4        720x1280 copy to send to the phone
+    <name>-celu.mp4        1080x1920 copy to send to the phone (the render itself stays 4K)
 Prints the loudness and peak of the audio (peak should sit around -1 to -3 dB, never 0).
 """
 import os
@@ -26,6 +26,8 @@ def main():
     expected = segments[-1]['end_frame'] / common.FPS
     common.say(f'render: {info["width"]}x{info["height"]} {info["fps"]} fps, {info["duration"]:.2f} s '
                f'(esperado {expected:.2f} s)')
+    if (info['width'], info['height']) != (common.VW, common.VH):
+        common.say(f'ATENCION: el render no es 4K ({common.VW}x{common.VH}): falta --resolution portrait-4k')
     if abs(info['duration'] - expected) > 0.15:
         common.say('ATENCION: la duración no coincide con segments.json')
 
@@ -52,8 +54,8 @@ def main():
                    + ('  ATENCION: clipea' if peak and float(peak[-1]) > -0.5 else ''))
 
     phone = os.path.splitext(render)[0] + '-celu.mp4'
-    common.run(['ffmpeg', '-v', 'error', '-y', '-i', render, '-vf', 'scale=720:1280:flags=lanczos',
-                '-c:v', 'libx264', '-preset', 'medium', '-crf', '22', '-c:a', 'aac', '-b:a', '160k',
+    common.run(['ffmpeg', '-v', 'error', '-y', '-i', render, '-vf', f'scale={common.W}:{common.H}:flags=lanczos',
+                '-c:v', 'libx264', '-preset', 'medium', '-crf', '20', '-c:a', 'aac', '-b:a', '160k',
                 '-movflags', '+faststart', phone])
     common.say(f'copia para el celu: {phone}')
 

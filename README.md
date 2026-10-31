@@ -32,6 +32,11 @@ Pensada para reels en **español**.
 9. **Efectos de sonido** sutiles (pop, whoosh, click, ding), siempre por debajo de tu voz.
 10. **Control de calidad**: todo dentro de la zona segura de Reels, revisa cada corte cuadro por cuadro y te da
    una copia liviana para el celu.
+11. **Sale en 4K** (2160×3840): el video se arma, se recorta y se renderiza en 4K desde tus originales, y el texto
+   se dibuja a doble resolución. Nada pasa por 1080 en el camino.
+12. **Estudio en vivo**: una página en tu compu donde ves el reel y elegís estilo, tipografía, colores, tamaño,
+   altura y animación de los subtítulos; cada cambio se ve en un segundo y queda guardado. De ahí mismo sale el
+   render 4K.
 
 ---
 
@@ -89,12 +94,18 @@ como se los pedirías a una editora:
 Cada vuelta es un nuevo render (`v2`, `v3`...). Nunca se pisan las versiones anteriores y tus archivos
 originales no se tocan.
 
+Si preferís elegir el look vos misma, pedí **"abrime el estudio"**: se abre una página con el reel y los
+controles al lado (6 estilos base, 9 tipografías, colores, mayúsculas, sombra o caja, tamaño, altura, animación,
+zoom y sonidos). Lo que elegís queda en `reel.json`, así que después podés seguir pidiéndole cambios a Claude.
+
 ---
 
 ## Personalizar el estilo
 
-Todo el look está en `config.json` (colores) y `references/estilo.md` (las reglas que sigue Claude). Para usar
-otros colores, cambiá `caption` (el color de los subtítulos) y `accents` (los de los destacados y títulos).
+La forma más fácil es el estudio (arriba). Si no, todo el look está en `config.json` (colores),
+`reel.json` -> `captions` (tipografía, colores y animación de cada reel; ver `references/plan.md`) y
+`references/estilo.md` (las reglas que sigue Claude). Para cambiar los colores de todos los reels, cambiá
+`caption` (el color de los subtítulos) y `accents` (los de los destacados y títulos) en `config.json`.
 
 ---
 
