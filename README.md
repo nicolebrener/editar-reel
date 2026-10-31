@@ -95,7 +95,7 @@ Cada vuelta es un nuevo render (`v2`, `v3`...). Nunca se pisan las versiones ant
 originales no se tocan.
 
 Si preferís elegir el look vos misma, pedí **"abrime el estudio"**: se abre una página con el reel y los
-controles al lado (6 estilos base, 9 tipografías, colores, mayúsculas, sombra o caja, tamaño, altura, animación,
+controles al lado (9 estilos base, entre ellos uno en arco sobre la cabeza y el de MIRA; 11 tipografías, colores, mayúsculas, sombra o caja, tamaño, altura, animación,
 zoom y sonidos). Lo que elegís queda en `reel.json`, así que después podés seguir pidiéndole cambios a Claude.
 
 ---

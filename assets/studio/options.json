@@ -2,72 +2,490 @@
   "title": "Estudio de reels",
   "sample": "Hola",
   "presets": [
-    {"label": "Pop", "hint": "Cal Sans amarillo, destacados de color que rebotan",
-     "captions": {"style": "pop"}},
-    {"label": "Clean", "hint": "Blanco, una palabra, destacado en itálica amarilla",
-     "captions": {"style": "clean"}},
-    {"label": "Bold", "hint": "Montserrat Black en mayúscula",
-     "captions": {"style": "clean", "font": "montserrat", "emphFont": "montserrat", "case": "upper",
-                  "emphItalic": false, "shadow": "soft"}},
-    {"label": "Impacto", "hint": "Anton alto y angosto, blanco y amarillo",
-     "captions": {"style": "pop", "font": "anton", "emphFont": "anton", "case": "upper", "color": "#FFFFFF",
-                  "emphColor": "#FFE14D", "shadow": "strong"}},
-    {"label": "Editorial", "hint": "Inter limpio con destacados en serif itálica",
-     "captions": {"style": "clean", "emphFont": "dmserif", "emphCase": "asis", "emphItalic": true}},
-    {"label": "Caja", "hint": "Poppins sobre una caja oscura, se lee en cualquier fondo",
-     "captions": {"style": "clean", "font": "poppins", "emphFont": "poppins", "shadow": "box",
-                  "emphItalic": false}}
+    {
+      "label": "Pop",
+      "hint": "Cal Sans amarillo, destacados de color que rebotan",
+      "captions": {
+        "style": "pop"
+      }
+    },
+    {
+      "label": "Clean",
+      "hint": "Blanco, una palabra, destacado en itálica amarilla",
+      "captions": {
+        "style": "clean"
+      }
+    },
+    {
+      "label": "Bold",
+      "hint": "Montserrat Black en mayúscula",
+      "captions": {
+        "style": "clean",
+        "font": "montserrat",
+        "emphFont": "montserrat",
+        "case": "upper",
+        "emphItalic": false,
+        "shadow": "soft"
+      }
+    },
+    {
+      "label": "Impacto",
+      "hint": "Anton alto y angosto, blanco y amarillo",
+      "captions": {
+        "style": "pop",
+        "font": "anton",
+        "emphFont": "anton",
+        "case": "upper",
+        "color": "#FFFFFF",
+        "emphColor": "#FFE14D",
+        "shadow": "strong"
+      }
+    },
+    {
+      "label": "Editorial",
+      "hint": "Inter limpio con destacados en serif itálica",
+      "captions": {
+        "style": "clean",
+        "emphFont": "dmserif",
+        "emphCase": "asis",
+        "emphItalic": true
+      }
+    },
+    {
+      "label": "Caja",
+      "hint": "Poppins sobre una caja oscura, se lee en cualquier fondo",
+      "captions": {
+        "style": "clean",
+        "font": "poppins",
+        "emphFont": "poppins",
+        "shadow": "box",
+        "emphItalic": false
+      }
+    },
+    {
+      "label": "Arco",
+      "hint": "Minúscula amarilla pálida en arco sobre la cabeza; el remate en serif itálica",
+      "captions": {
+        "style": "clean",
+        "font": "montserrat-m",
+        "emphFont": "dmserif",
+        "color": "#F6EB8F",
+        "emphColor": "#F6EB8F",
+        "case": "lower",
+        "emphCase": "upper",
+        "emphItalic": true,
+        "shadow": "light",
+        "anim": "soft",
+        "size": 86,
+        "emphSize": 132,
+        "y": 430,
+        "curve": 210,
+        "tilt": 6
+      }
+    },
+    {
+      "label": "Arco blanco",
+      "hint": "Igual de curvo pero chiquito y blanco, más discreto",
+      "captions": {
+        "style": "clean",
+        "font": "montserrat-m",
+        "emphFont": "montserrat-m",
+        "color": "#FFFFFF",
+        "emphColor": "#F6EB8F",
+        "case": "lower",
+        "emphCase": "lower",
+        "emphItalic": false,
+        "shadow": "light",
+        "anim": "soft",
+        "size": 54,
+        "emphSize": 84,
+        "y": 430,
+        "curve": 170,
+        "tilt": 8
+      }
+    },
+    {
+      "label": "MIRA",
+      "hint": "Matter blanco, destacado en píldora Sky Blue, movimiento calmo",
+      "captions": {
+        "style": "clean",
+        "font": "matter",
+        "emphFont": "matter-bold",
+        "color": "#FFFFFF",
+        "emphColor": "#BBCDF3",
+        "case": "asis",
+        "emphCase": "asis",
+        "emphItalic": false,
+        "shadow": "soft",
+        "anim": "soft",
+        "size": 80,
+        "emphSize": 120,
+        "emphBox": "pill"
+      }
+    }
   ],
-  "presetKeys": ["style", "font", "emphFont", "color", "emphColor", "case", "emphCase", "emphItalic", "shadow", "anim", "emphSfx", "size", "emphSize"],
+  "presetKeys": [
+    "style",
+    "font",
+    "emphFont",
+    "color",
+    "emphColor",
+    "case",
+    "emphCase",
+    "emphItalic",
+    "shadow",
+    "anim",
+    "emphSfx",
+    "size",
+    "emphSize",
+    "y",
+    "curve",
+    "tilt",
+    "emphBox"
+  ],
   "groups": [
-    {"label": "Tipografía", "controls": [
-      {"key": "captions.font", "label": "Subtítulos", "type": "font", "choices": "fonts"},
-      {"key": "captions.emphFont", "label": "Destacados", "type": "font", "choices": "fonts"},
-      {"key": "titleFont", "label": "Títulos detrás de la cabeza", "type": "font", "choices": "fonts"}
-    ]},
-    {"label": "Color", "controls": [
-      {"key": "captions.color", "label": "Subtítulos", "type": "color",
-       "choices": ["#FFFFFF", "#FFD60A", "#FFE14D", "#F5F0E6"]},
-      {"key": "captions.emphColor", "label": "Destacados", "type": "color",
-       "choices": [null, "#FFE14D", "#FF6FAE", "#5BE49B", "#5AA9FF", "#FF8A4C", "#B794FF", "#FFFFFF"],
-       "nullLabel": "Un color por destacado (rota los acentos)"}
-    ]},
-    {"label": "Texto", "controls": [
-      {"key": "captions.case", "label": "Mayúsculas", "type": "segment", "choices": [
-        {"v": "asis", "label": "Como se dijo"}, {"v": "auto", "label": "minúscula al empezar"},
-        {"v": "upper", "label": "MAYÚSCULA"}, {"v": "lower", "label": "minúscula"}]},
-      {"key": "captions.emphCase", "label": "Destacados", "type": "segment", "choices": [
-        {"v": "upper", "label": "MAYÚSCULA"}, {"v": "asis", "label": "Como se dijo"}]},
-      {"key": "captions.emphItalic", "label": "Destacados en itálica", "type": "toggle"},
-      {"key": "captions.shadow", "label": "Para que se lea", "type": "segment", "choices": [
-        {"v": "light", "label": "Sombra suave"}, {"v": "soft", "label": "Sombra"},
-        {"v": "strong", "label": "Sombra fuerte"}, {"v": "box", "label": "Caja"}, {"v": "none", "label": "Nada"}]}
-    ]},
-    {"label": "Tamaño y lugar", "controls": [
-      {"key": "captions.size", "label": "Subtítulos", "type": "range", "min": 56, "max": 130, "step": 2, "unit": "px"},
-      {"key": "captions.emphSize", "label": "Destacados", "type": "range", "min": 90, "max": 200, "step": 2, "unit": "px"},
-      {"key": "captions.y", "label": "Altura", "type": "range", "min": 900, "max": 1400, "step": 10, "unit": "px",
-       "hint": "Más alto se acerca a la cara; el límite de abajo es la zona segura"}
-    ]},
-    {"label": "Movimiento y sonido", "controls": [
-      {"key": "captions.anim", "label": "Entrada de las palabras", "type": "segment", "choices": [
-        {"v": "pop", "label": "Pop con rebote"}, {"v": "soft", "label": "Suave"}, {"v": "none", "label": "Sin animación"}]},
-      {"key": "autoZoom", "label": "Zoom de cámara en cada destacado", "type": "toggle"},
-      {"key": "captions.emphSfx", "label": "Sonido en los destacados", "type": "segment", "choices": [
-        {"v": "pop", "label": "Pop"}, {"v": "click", "label": "Click"}, {"v": "ding", "label": "Ding"},
-        {"v": null, "label": "Ninguno"}]},
-      {"key": "sfx.gain", "label": "Volumen de los efectos", "type": "range", "min": 0, "max": 1.5, "step": 0.1, "unit": "×"}
-    ]}
+    {
+      "label": "Tipografía",
+      "controls": [
+        {
+          "key": "captions.font",
+          "label": "Subtítulos",
+          "type": "font",
+          "choices": "fonts"
+        },
+        {
+          "key": "captions.emphFont",
+          "label": "Destacados",
+          "type": "font",
+          "choices": "fonts"
+        },
+        {
+          "key": "titleFont",
+          "label": "Títulos detrás de la cabeza",
+          "type": "font",
+          "choices": "fonts"
+        }
+      ]
+    },
+    {
+      "label": "Color",
+      "controls": [
+        {
+          "key": "captions.color",
+          "label": "Subtítulos",
+          "type": "color",
+          "choices": [
+            "#FFFFFF",
+            "#FFD60A",
+            "#FFE14D",
+            "#F6EB8F",
+            "#F5F0E6"
+          ]
+        },
+        {
+          "key": "captions.emphColor",
+          "label": "Destacados",
+          "type": "color",
+          "choices": [
+            null,
+            "#FFE14D",
+            "#F6EB8F",
+            "#FF6FAE",
+            "#5BE49B",
+            "#5AA9FF",
+            "#FF8A4C",
+            "#B794FF",
+            "#BBCDF3",
+            "#FAE271",
+            "#ACD56B",
+            "#2A5B98",
+            "#FFFFFF"
+          ],
+          "nullLabel": "Un color por destacado (rota los acentos)"
+        }
+      ]
+    },
+    {
+      "label": "Texto",
+      "controls": [
+        {
+          "key": "captions.case",
+          "label": "Mayúsculas",
+          "type": "segment",
+          "choices": [
+            {
+              "v": "asis",
+              "label": "Como se dijo"
+            },
+            {
+              "v": "auto",
+              "label": "minúscula al empezar"
+            },
+            {
+              "v": "upper",
+              "label": "MAYÚSCULA"
+            },
+            {
+              "v": "lower",
+              "label": "minúscula"
+            }
+          ]
+        },
+        {
+          "key": "captions.emphCase",
+          "label": "Destacados",
+          "type": "segment",
+          "choices": [
+            {
+              "v": "upper",
+              "label": "MAYÚSCULA"
+            },
+            {
+              "v": "asis",
+              "label": "Como se dijo"
+            }
+          ]
+        },
+        {
+          "key": "captions.emphItalic",
+          "label": "Destacados en itálica",
+          "type": "toggle"
+        },
+        {
+          "key": "captions.shadow",
+          "label": "Para que se lea",
+          "type": "segment",
+          "choices": [
+            {
+              "v": "light",
+              "label": "Sombra suave"
+            },
+            {
+              "v": "soft",
+              "label": "Sombra"
+            },
+            {
+              "v": "strong",
+              "label": "Sombra fuerte"
+            },
+            {
+              "v": "box",
+              "label": "Caja"
+            },
+            {
+              "v": "none",
+              "label": "Nada"
+            }
+          ]
+        },
+        {
+          "key": "captions.emphBox",
+          "label": "Destacados sobre",
+          "type": "segment",
+          "choices": [
+            {
+              "v": null,
+              "label": "Nada"
+            },
+            {
+              "v": "pill",
+              "label": "Píldora de color"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "label": "Tamaño y lugar",
+      "controls": [
+        {
+          "key": "captions.size",
+          "label": "Subtítulos",
+          "type": "range",
+          "min": 56,
+          "max": 130,
+          "step": 2,
+          "unit": "px"
+        },
+        {
+          "key": "captions.emphSize",
+          "label": "Destacados",
+          "type": "range",
+          "min": 90,
+          "max": 200,
+          "step": 2,
+          "unit": "px"
+        },
+        {
+          "key": "captions.y",
+          "label": "Altura",
+          "type": "range",
+          "min": 260,
+          "max": 1400,
+          "step": 10,
+          "unit": "px",
+          "hint": "Arriba de la cabeza (300-500) para el arco; a la altura del pecho (1150-1300) para el resto"
+        },
+        {
+          "key": "captions.curve",
+          "label": "Curva (arco)",
+          "type": "range",
+          "min": 0,
+          "max": 300,
+          "step": 10,
+          "unit": "px",
+          "hint": "0 = recto. Con curva el subtítulo se dobla como un halo"
+        },
+        {
+          "key": "captions.tilt",
+          "label": "Inclinación",
+          "type": "range",
+          "min": 0,
+          "max": 12,
+          "step": 1,
+          "unit": "°"
+        }
+      ]
+    },
+    {
+      "label": "Movimiento y sonido",
+      "controls": [
+        {
+          "key": "captions.anim",
+          "label": "Entrada de las palabras",
+          "type": "segment",
+          "choices": [
+            {
+              "v": "pop",
+              "label": "Pop con rebote"
+            },
+            {
+              "v": "soft",
+              "label": "Suave"
+            },
+            {
+              "v": "none",
+              "label": "Sin animación"
+            }
+          ]
+        },
+        {
+          "key": "autoZoom",
+          "label": "Zoom de cámara en cada destacado",
+          "type": "toggle"
+        },
+        {
+          "key": "captions.emphSfx",
+          "label": "Sonido en los destacados",
+          "type": "segment",
+          "choices": [
+            {
+              "v": "pop",
+              "label": "Pop"
+            },
+            {
+              "v": "click",
+              "label": "Click"
+            },
+            {
+              "v": "ding",
+              "label": "Ding"
+            },
+            {
+              "v": null,
+              "label": "Ninguno"
+            }
+          ]
+        },
+        {
+          "key": "sfx.gain",
+          "label": "Volumen de los efectos",
+          "type": "range",
+          "min": 0,
+          "max": 1.5,
+          "step": 0.1,
+          "unit": "×"
+        }
+      ]
+    }
   ],
   "fonts": [
-    {"v": "cal", "label": "Cal Sans", "family": "Cal Sans", "weight": 400, "src": "assets/fonts/CalSans-Regular.ttf"},
-    {"v": "inter", "label": "Inter", "family": "Inter", "weight": 800, "src": "assets/fonts/Inter-ExtraBold.ttf"},
-    {"v": "montserrat", "label": "Montserrat", "family": "Montserrat", "weight": 900, "src": "assets/fonts/Montserrat-Variable.ttf"},
-    {"v": "poppins", "label": "Poppins", "family": "Poppins", "weight": 800, "src": "assets/fonts/Poppins-ExtraBold.ttf"},
-    {"v": "grotesk", "label": "Space Grotesk", "family": "Space Grotesk", "weight": 700, "src": "assets/fonts/SpaceGrotesk-Variable.ttf"},
-    {"v": "anton", "label": "Anton", "family": "Anton", "weight": 400, "src": "assets/fonts/Anton-Regular.ttf"},
-    {"v": "bebas", "label": "Bebas Neue", "family": "Bebas Neue", "weight": 400, "src": "assets/fonts/BebasNeue-Regular.ttf"},
-    {"v": "dmserif", "label": "DM Serif", "family": "DM Serif Display", "weight": 400, "src": "assets/fonts/DMSerifDisplay-Regular.ttf"},
-    {"v": "caveat", "label": "Caveat (a mano)", "family": "Caveat", "weight": 700, "src": "assets/fonts/Caveat-Bold.ttf"}
+    {
+      "v": "cal",
+      "label": "Cal Sans",
+      "family": "Cal Sans",
+      "weight": 400,
+      "src": "assets/fonts/CalSans-Regular.ttf"
+    },
+    {
+      "v": "inter",
+      "label": "Inter",
+      "family": "Inter",
+      "weight": 800,
+      "src": "assets/fonts/Inter-ExtraBold.ttf"
+    },
+    {
+      "v": "montserrat",
+      "label": "Montserrat",
+      "family": "Montserrat",
+      "weight": 900,
+      "src": "assets/fonts/Montserrat-Variable.ttf"
+    },
+    {
+      "v": "montserrat-m",
+      "label": "Montserrat Medium",
+      "family": "Montserrat",
+      "weight": 500,
+      "src": "assets/fonts/Montserrat-Variable.ttf"
+    },
+    {
+      "v": "poppins",
+      "label": "Poppins",
+      "family": "Poppins",
+      "weight": 800,
+      "src": "assets/fonts/Poppins-ExtraBold.ttf"
+    },
+    {
+      "v": "grotesk",
+      "label": "Space Grotesk",
+      "family": "Space Grotesk",
+      "weight": 700,
+      "src": "assets/fonts/SpaceGrotesk-Variable.ttf"
+    },
+    {
+      "v": "anton",
+      "label": "Anton",
+      "family": "Anton",
+      "weight": 400,
+      "src": "assets/fonts/Anton-Regular.ttf"
+    },
+    {
+      "v": "bebas",
+      "label": "Bebas Neue",
+      "family": "Bebas Neue",
+      "weight": 400,
+      "src": "assets/fonts/BebasNeue-Regular.ttf"
+    },
+    {
+      "v": "dmserif",
+      "label": "DM Serif",
+      "family": "DM Serif Display",
+      "weight": 400,
+      "src": "assets/fonts/DMSerifDisplay-Regular.ttf"
+    },
+    {
+      "v": "caveat",
+      "label": "Caveat (a mano)",
+      "family": "Caveat",
+      "weight": 700,
+      "src": "assets/fonts/Caveat-Bold.ttf"
+    },
+    {
+      "v": "matter",
+      "label": "Matter (MIRA)",
+      "family": "Matter",
+      "weight": 600,
+      "src": "assets/brand/Matter-SemiBold.otf"
+    }
   ]
 }

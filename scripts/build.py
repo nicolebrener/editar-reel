@@ -149,7 +149,13 @@ FONTS = {
     'bebas':      {'family': "'Bebas Neue'", 'weight': 400, 'ratio': 0.40, 'ls': '1px'},
     'dmserif':    {'family': "'DM Serif Display'", 'weight': 400, 'ratio': 0.55, 'ls': '0px'},
     'caveat':     {'family': "'Caveat'", 'weight': 700, 'ratio': 0.42, 'ls': '0px'},
+    'montserrat-m': {'family': "'Montserrat'", 'weight': 500, 'ratio': 0.58, 'ls': '0px'},
+    # MIRA's social font: licensed, so it is not in this repo; it comes from the editar-reel-mira skill next to this
+    # one (MATTER_DIR). Without it the captions fall back to Inter
+    'matter':      {'family': "'Matter'", 'weight': 600, 'ratio': 0.56, 'ls': '-0.01em'},
+    'matter-bold': {'family': "'Matter'", 'weight': 700, 'ratio': 0.57, 'ls': '-0.02em'},
 }
+MATTER_DIR = os.path.join(os.path.dirname(common.SKILL_DIR), 'editar-reel-mira', 'assets', 'brand')
 UPPER = 0.74 / 0.60
 # no outline ever: a soft shadow, or a dark box behind the words
 SHADOWS = {'soft': '0 4px 14px rgba(0,0,0,.55),0 2px 4px rgba(0,0,0,.45)',
@@ -160,10 +166,10 @@ SHADOWS = {'soft': '0 4px 14px rgba(0,0,0,.55),0 2px 4px rgba(0,0,0,.45)',
 STYLES = {
     'pop':   {'font': 'cal', 'emphFont': 'cal', 'size': 92, 'emphSize': 150, 'color': None, 'emphColor': None,
               'case': 'asis', 'emphCase': 'upper', 'emphItalic': False, 'shadow': 'soft', 'anim': 'pop',
-              'emphSfx': 'pop', 'y': 1240},
+              'emphSfx': 'pop', 'y': 1240, 'curve': 0, 'tilt': 0, 'emphBox': None},
     'clean': {'font': 'inter', 'emphFont': 'inter', 'size': 80, 'emphSize': 130, 'color': '#FFFFFF',
               'emphColor': '#FFE14D', 'case': 'auto', 'emphCase': 'upper', 'emphItalic': True, 'shadow': 'light',
-              'anim': 'soft', 'emphSfx': None, 'y': 1240},
+              'anim': 'soft', 'emphSfx': None, 'y': 1240, 'curve': 0, 'tilt': 0, 'emphBox': None},
 }
 
 
@@ -177,6 +183,9 @@ def caption_style(opts, cfg):
     for k in ('font', 'emphFont'):
         if st[k] not in FONTS:
             common.die(f'captions.{k}: no existe "{st[k]}" (hay: {", ".join(FONTS)})')
+        if st[k].startswith('matter') and not os.path.exists(os.path.join(MATTER_DIR, 'Matter-Bold.otf')):
+            common.say(f'captions.{k}: Matter no está (va en la skill editar-reel-mira); uso Inter')
+            st[k] = 'inter'
     return st
 
 
@@ -198,15 +207,43 @@ def cased(t, mode, sentence_start=False):
     return t
 
 
+def ink_on(bg):
+    """Black or white text for a coloured ground."""
+    r, g, b = (int(bg.lstrip('#')[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    return '#111115' if 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.5 else '#FFFFFF'
+
+
+def arc_path(y, sag):
+    """A circular arc across the frame whose middle is at height y and whose ends drop `sag` px."""
+    x0, x1 = SAFE['left'] + 30, SAFE['right'] - 30
+    half = (x1 - x0) / 2
+    r = (half * half + sag * sag) / (2 * sag)
+    return f'M{x0},{y + sag:.1f} A{r:.1f},{r:.1f} 0 0 1 {x1},{y + sag:.1f}', 2 * half + 8 / 3 * sag * sag / (2 * half)
+
+
 def caption_css(st):
     f, ef = FONTS[st['font']], FONTS[st['emphFont']]
-    css = (f".w{{display:inline-block;font-family:{f['family']},sans-serif;font-weight:{f['weight']};line-height:1.02;"
+    css = ''
+    if os.path.exists(os.path.join(MATTER_DIR, 'Matter-Bold.otf')):
+        css += ''.join(f"@font-face{{font-family:'Matter';font-weight:{wt};src:url('assets/brand/Matter-{n}.otf') "
+                       f"format('opentype')}}\n" for wt, n in ((600, 'SemiBold'), (700, 'Bold')))
+    css += (f".w{{display:inline-block;font-family:{f['family']},sans-serif;font-weight:{f['weight']};line-height:1.02;"
            f"color:{st['color']};letter-spacing:{f['ls']};text-shadow:{SHADOWS.get(st['shadow'], SHADOWS['soft'])}}}\n"
            f".w.e{{font-family:{ef['family']},sans-serif;font-weight:{ef['weight']};"
            f"line-height:{0.95 if st['anim'] == 'pop' else 1};"
            f"letter-spacing:{ef['ls']};font-style:{'italic' if st['emphItalic'] else 'normal'}}}\n")
-    if st['shadow'] == 'box':
+    if st['shadow'] == 'box' and not st['curve']:
         css += '.cap-in{background:rgba(12,12,12,.62);border-radius:24px;padding:4px 28px 12px}\n'
+    # arched captions: SVG text on a path. Text shadows do not reach SVG text, so the shadow is a drop-shadow filter
+    sh = {'soft': '0 4px 10px rgba(0,0,0,.5)', 'light': '0 3px 12px rgba(0,0,0,.3)',
+          'strong': '0 5px 16px rgba(0,0,0,.75)'}.get(st['shadow'])
+    css += ('.cap.arc{left:0;right:0;top:0;height:1920px;display:block}\n'
+            '.cap.arc .cap-in{display:block}\n'
+            f'.arcsvg{{position:absolute;left:0;top:0;overflow:visible{";filter:drop-shadow(" + sh + ")" if sh else ""}}}\n'
+            '.arcsvg text{white-space:pre}.arcsvg tspan{fill:currentColor}\n'
+            '.pill{display:inline-flex;flex-wrap:wrap;justify-content:center;gap:0 0.24em;padding:0.12em 0.42em 0.18em;'
+            'border-radius:9999px;box-shadow:0 24px 48px -16px rgba(20,28,56,.45)}\n'
+            '.pill .w{color:inherit !important;text-shadow:none}\n')
     return css
 
 
@@ -231,14 +268,22 @@ def build_captions(c, caps, st):
             fs = fit_size(' '.join(texts), st['emphSize'], max_w=W - 2 * 100, ratio=ratio)
             y = g.get('y') or (st['y'] - (30 if pop else 0))
             words = ''.join(f'<span class="w e" style="color:{col};font-size:{fs}px">{esc(t)}</span>' for t in texts)
+            if st['emphBox'] == 'pill' and not st['curve']:
+                words = f'<span class="pill" style="background:{col};color:{ink_on(col)}">{words}</span>'
         else:
             texts = [cased(w['t'], st['case'], w.get('ss')) for w in g['words']]
             ratio = FONTS[st['font']]['ratio'] * (UPPER if st['case'] == 'upper' else 1)
             fs = fit_size(' '.join(texts), st['size'], ratio=ratio)
             y = g.get('y') or st['y']
             words = ''.join(f'<span class="w" style="font-size:{fs}px">{esc(t)}</span>' for t in texts)
+        if st['curve']:
+            build_arc_caption(c, g, k, gid, dur, texts, is_emph, col if is_emph else None, y, st)
+            continue
         c.add(8, f'<div id="{gid}" class="clip cap" data-start="{g["start"]:.3f}" data-duration="{dur:.3f}" '
                  f'data-track-index="8" style="top:{y}px"><div class="cap-in">{words}</div></div>')
+        if st['emphBox'] == 'pill' and is_emph:
+            c.anim(f'tl.fromTo("#{gid} .pill",{{scale:0.86,opacity:0}},{{scale:1,opacity:1,duration:0.22,'
+                   f'ease:"power3.out"}},{g["start"]:.3f});')
         rot = ((k * 37) % 9 - 4) if is_emph else 0     # deterministic small tilt per emphasis
         for i, w in enumerate(g['words']):
             sel = f'#{gid} .w:nth-child({i + 1})'
@@ -262,6 +307,34 @@ def build_captions(c, caps, st):
                    f'{g["start"] + 0.24:.3f});')
         if is_emph and st['emphSfx']:
             c.sfx(st['emphSfx'], g['start'], 1.0 if pop else 0.6)
+
+
+def build_arc_caption(c, g, k, gid, dur, texts, is_emph, col, y, st):
+    """A caption bent along an arc (the "halo" over the head), with a small tilt of its own. Each word fades in
+    when it is said (SVG text: fill-opacity, since transforms do not reach a tspan)."""
+    path, length = arc_path(y, st['curve'])
+    font = FONTS[st['emphFont'] if is_emph else st['font']]
+    mode = st['emphCase'] if is_emph else st['case']
+    chars = len(' '.join(texts)) * font['ratio'] * (UPPER if mode == 'upper' else 1)
+    fs = int(min(st['emphSize'] if is_emph else st['size'], 0.9 * length / max(chars, 1)))
+    tilt = st['tilt']
+    rot = ((k * 53) % (2 * tilt + 1) - tilt) if tilt else 0
+    own = f" style='color:{col}'" if col else ''
+    spans = ''.join(f'<tspan class="w{" e" if is_emph else ""}"{own}>{" " if i else ""}{esc(t)}</tspan>'
+                    for i, t in enumerate(texts))
+    c.add(8, f'<div id="{gid}" class="clip cap arc" data-start="{g["start"]:.3f}" data-duration="{dur:.3f}" '
+             f'data-track-index="8"><div class="cap-in" style="transform-origin:540px {y}px">'
+             f'<svg class="arcsvg" width="{W}" height="{H}" viewBox="0 0 {W} {H}"><path id="{gid}-p" d="{path}" '
+             f'fill="none"/><text font-size="{fs}" transform="rotate({rot} 540 {y})"><textPath href="#{gid}-p" '
+             f'startOffset="50%" text-anchor="middle">{spans}</textPath></text></svg></div></div>')
+    c.anim(f'tl.fromTo("#{gid} .cap-in",{{y:16,opacity:0}},{{y:0,opacity:1,duration:0.22,ease:"power2.out"}},'
+           f'{g["start"]:.3f});')
+    for i, w in enumerate(g['words']):
+        t = max(g['start'], min(w['s'], g['end'] - 0.1))
+        c.anim(f'tl.fromTo("#{gid} .w:nth-child({i + 1})",{{attr:{{"fill-opacity":0}}}},'
+               f'{{attr:{{"fill-opacity":1}},duration:0.14,ease:"power1.out"}},{t:.3f});')
+    if is_emph and st['emphSfx']:
+        c.sfx(st['emphSfx'], g['start'], 0.6)
 
 
 # ---------------------------------------------------------------- inserts
@@ -714,6 +787,10 @@ def main():
     total = segments[-1]['end_frame'] / common.FPS
 
     # shared assets into the project (fonts, sfx, gsap)
+    if os.path.isdir(MATTER_DIR):
+        os.makedirs(os.path.join(project, 'assets', 'brand'), exist_ok=True)
+        for f in glob.glob(os.path.join(MATTER_DIR, 'Matter-*.otf')):
+            shutil.copy(f, os.path.join(project, 'assets', 'brand'))
     for sub in ('fonts', 'sfx', 'vendor'):
         src = os.path.join(common.SKILL_DIR, 'assets', sub)
         dst = os.path.join(project, 'assets', sub)
