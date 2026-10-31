@@ -234,10 +234,10 @@ function newFrame() {
 
 function player() { return frame && frame.contentWindow && frame.contentWindow.studio; }
 
-// the moment that shows a change: the current one if it already has an emphasis / a caption on screen, else the
-// next one (or the first, near the end)
+// the moment that shows a change: the current one if it already shows the right kind of caption (an emphasis, or
+// a plain caption: the size slider of one does nothing to the other), else the next one (or the first)
 function showTime(doc, t, what) {
-  const sel = what === 'emph' ? '.cap.emph, .cap:has(.e)' : '.cap';
+  const sel = what === 'emph' ? '.cap.emph, .cap:has(.e)' : '.cap:not(.emph):not(:has(.e))';
   const spans = [...doc.querySelectorAll(sel)].map((c) => [+c.dataset.start, +c.dataset.start + +c.dataset.duration]);
   if (!spans.length || spans.some(([a, b]) => t >= a && t < b)) return t;
   const next = spans.find(([a]) => a > t) || spans[0];
