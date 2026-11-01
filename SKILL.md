@@ -30,7 +30,7 @@ y `reel.json`. Todo sale en 4K (2160x3840): no hay que hacer nada para que no pi
    ```json
    {"name": "Nombre Apellido | bajada", "instagram": "usuario", "clipsDir": "~/Desktop/videos",
     "projectsDir": "~/reel-edits", "colors": {"caption": "#FFD60A",
-    "accents": ["#FF3EA5", "#7CFF4F", "#FF7A00"]}, "hdrExposure": 0.62,
+    "accents": ["#E2577F", "#E07A4F", "#9B7FD8", "#E8B53E", "#7FA86A"]}, "hdrExposure": 0.62,
     "whisperModel": "small", "language": "es"}
    ```
 

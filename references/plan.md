@@ -40,7 +40,7 @@ Los de `edl.json` están en segundos de cada clip original.
   "inserts": [ ... ]
 }
 ```
-En `captions.json` un destacado puede llevar su propio color: `"emph": {"color": "#5AA9FF"}` (un color por
+En `captions.json` un destacado puede llevar su propio color: `"emph": {"color": "#9B7FD8"}` (un color por
 sección). `captions.style: "clean"` cambia el look: blanco en Inter ExtraBold y minúscula, destacados en itálica gruesa
 de un solo color (`emphColor`, default `#FFE14D`) y entrada suave sin rebote. Va bien con `captions.py --max-words 1`
 (una palabra por vez).

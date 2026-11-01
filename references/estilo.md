@@ -15,8 +15,9 @@ Montserrat Black, Poppins ExtraBold, Space Grotesk Bold, Anton, Bebas Neue y DM 
 
 ## Colores (`config.json` -> `colors`)
 - `caption` `#FFD60A`: amarillo, el color base de todos los subtítulos.
-- `accents`: rosa `#FF3EA5`, lima `#7CFF4F`, naranja `#FF7A00`. **Nunca turquesa / celeste neón** (`#00E0FF` y
-  parecidos): no se lee sobre video y se ve hecho con IA. Los destacados y los títulos
+- `accents`: rosa frambuesa `#E2577F`, terracota `#E07A4F`, lavanda `#9B7FD8`, mostaza `#E8B53E`, salvia `#7FA86A`.
+  **Nada flúo ni neón** (ni turquesa `#00E0FF`, ni lima `#7CFF4F`, ni naranja `#FF7A00`, ni rosa chicle `#FF3EA5`):
+  se ven hechos con IA. Tonos profundos y apagados, que se lean sobre pared clara y sobre fondo oscuro. Los destacados y los títulos
   van rotando por esta lista (`"color": 0..3` en `reel.json`, o un `"#hex"` directo).
 - **Sin contorno.** Todo el texto lleva solo una sombra suave. Si algo no se lee, primero movelo a una zona más
   oscura o lisa del cuadro; después, como mucho, más sombra.
@@ -48,8 +49,8 @@ y dan profundidad. No pongas títulos de más de ~10 letras por línea: el tama�
 ## Color por sección (cuando la persona pide más color)
 Un color para cada parte del guion (cada marca, cada idea), el mismo en todo lo de esa parte: el destacado, el
 `number`, el detalle del `anim` y el acento de la `scene`. Al cambiar de tema cambia el color: eso solo ya se
-siente como edición. Colores claros y saturados que se lean sobre video (rosa `#FF6FAE`, verde `#5BE49B`, azul
-`#5AA9FF`, naranja `#FF8A4C`, violeta `#B794FF`, amarillo `#FFE14D`).
+siente como edición. Los mismos tonos de `accents`, nunca flúo (rosa frambuesa `#E2577F`, terracota `#E07A4F`, lavanda `#9B7FD8`,
+mostaza `#E8B53E`, salvia `#7FA86A`).
 
 ## Luz de fondo
 Una sola `light` cálida (naranja `#FF8A3D`, `soft-light`) en todo el video, desde arriba a un costado, como una

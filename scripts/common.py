@@ -41,7 +41,8 @@ DEFAULT_CONFIG = {
     'projectsDir': '~/reel-edits',
     'colors': {
         'caption': '#FFD60A',                              # amarillo base de los subtítulos
-        'accents': ['#FF3EA5', '#7CFF4F', '#FF7A00'],  # rosa, lima, naranja (nunca turquesa: se ve hecho con IA)
+        # rosa frambuesa, terracota, lavanda, mostaza, salvia: se leen sobre video sin ser flúo (nada neón ni turquesa)
+        'accents': ['#E2577F', '#E07A4F', '#9B7FD8', '#E8B53E', '#7FA86A'],
     },
     'hdrExposure': 0.62,
     'whisperModel': 'small',

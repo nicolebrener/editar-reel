@@ -301,22 +301,23 @@
           "type": "color",
           "choices": [
             null,
+            "#E2577F",
+            "#E07A4F",
+            "#9B7FD8",
+            "#E8B53E",
+            "#7FA86A",
             "#FFE14D",
-            "#F8EDA8",
-            "#F9B4D0",
             "#F6EB8F",
-            "#FF6FAE",
-            "#5BE49B",
-            "#5AA9FF",
-            "#FF8A4C",
-            "#B794FF",
+            "#F9B4D0",
+            "#F8EDA8",
+            "#F3DCA7",
             "#BBCDF3",
             "#FAE271",
             "#ACD56B",
             "#2A5B98",
             "#FFFFFF"
           ],
-          "nullLabel": "Un color por destacado (rota los acentos)"
+          "nullLabel": "Un color por destacado (rota la paleta)"
         }
       ]
     },
