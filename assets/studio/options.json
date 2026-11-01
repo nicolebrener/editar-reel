@@ -144,6 +144,48 @@
       "set": {
         "grade": "cine"
       }
+    },
+    {
+      "label": "Girly",
+      "hint": "Blanco bold arriba de la cabeza, destacado rosa bebé con brillitos y un sticker que aparece",
+      "captions": {
+        "style": "clean",
+        "font": "montserrat-b",
+        "emphFont": "montserrat-b",
+        "color": "#FFFFFF",
+        "emphColor": "#F9B4D0",
+        "case": "asis",
+        "emphCase": "asis",
+        "emphItalic": false,
+        "shadow": "light",
+        "anim": "soft",
+        "size": 62,
+        "emphSize": 92,
+        "y": 420,
+        "sparkles": true,
+        "emphStickers": "girly"
+      }
+    },
+    {
+      "label": "Girly serif",
+      "hint": "Igual, con el destacado en serif itálica amarilla pálida",
+      "captions": {
+        "style": "clean",
+        "font": "montserrat-b",
+        "emphFont": "dmserif",
+        "color": "#FFFFFF",
+        "emphColor": "#F8EDA8",
+        "case": "asis",
+        "emphCase": "asis",
+        "emphItalic": true,
+        "shadow": "light",
+        "anim": "soft",
+        "size": 62,
+        "emphSize": 100,
+        "y": 420,
+        "sparkles": true,
+        "emphStickers": "girly"
+      }
     }
   ],
   "presetKeys": [
@@ -163,7 +205,9 @@
     "y",
     "curve",
     "tilt",
-    "emphBox"
+    "emphBox",
+    "sparkles",
+    "emphStickers"
   ],
   "groups": [
     {
@@ -258,6 +302,8 @@
           "choices": [
             null,
             "#FFE14D",
+            "#F8EDA8",
+            "#F9B4D0",
             "#F6EB8F",
             "#FF6FAE",
             "#5BE49B",
@@ -361,6 +407,27 @@
               "label": "Píldora de color"
             }
           ]
+        },
+        {
+          "key": "captions.sparkles",
+          "label": "Brillitos ✦ en los destacados",
+          "type": "toggle"
+        },
+        {
+          "key": "captions.emphStickers",
+          "label": "Sticker en cada destacado",
+          "type": "segment",
+          "choices": [
+            {
+              "v": null,
+              "label": "Ninguno"
+            },
+            {
+              "v": "girly",
+              "label": "Pack girly (estrellas, corazones, brillos)"
+            }
+          ],
+          "hint": "Los packs viven en ~/reel-stickers (scripts/stickers.py cut)"
         }
       ]
     },
@@ -505,6 +572,13 @@
       "label": "Montserrat Medium",
       "family": "Montserrat",
       "weight": 500,
+      "src": "assets/fonts/Montserrat-Variable.ttf"
+    },
+    {
+      "v": "montserrat-b",
+      "label": "Montserrat Bold",
+      "family": "Montserrat",
+      "weight": 700,
       "src": "assets/fonts/Montserrat-Variable.ttf"
     },
     {

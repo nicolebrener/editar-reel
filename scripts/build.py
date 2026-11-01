@@ -37,6 +37,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import anims  # noqa: E402
 import scenes  # noqa: E402
+import stickers  # noqa: E402
 import common  # noqa: E402
 
 W, H, SAFE = common.W, common.H, common.SAFE
@@ -248,6 +249,7 @@ FONTS = {
     'dmserif':    {'family': "'DM Serif Display'", 'weight': 400, 'ratio': 0.55, 'ls': '0px'},
     'caveat':     {'family': "'Caveat'", 'weight': 700, 'ratio': 0.42, 'ls': '0px'},
     'montserrat-m': {'family': "'Montserrat'", 'weight': 500, 'ratio': 0.58, 'ls': '0px'},
+    'montserrat-b': {'family': "'Montserrat'", 'weight': 700, 'ratio': 0.62, 'ls': '-0.3px'},
     # MIRA's social font: licensed, so it is not in this repo; it comes from the editar-reel-mira skill next to this
     # one (MATTER_DIR). Without it the captions fall back to Inter
     'matter':      {'family': "'Matter'", 'weight': 600, 'ratio': 0.56, 'ls': '-0.01em'},
@@ -268,10 +270,12 @@ SHADOWS = {'soft': '0 4px 14px rgba(0,0,0,.55),0 2px 4px rgba(0,0,0,.45)',
 STYLES = {
     'pop':   {'font': 'cal', 'emphFont': 'cal', 'size': 92, 'emphSize': 150, 'color': None, 'emphColor': None,
               'case': 'asis', 'emphCase': 'upper', 'emphItalic': False, 'shadow': 'soft', 'anim': 'pop',
-              'emphSfx': 'pop', 'y': 1240, 'curve': 0, 'tilt': 0, 'emphBox': None},
+              'emphSfx': 'pop', 'y': 1240, 'curve': 0, 'tilt': 0, 'emphBox': None,
+              'sparkles': False, 'emphStickers': None},
     'clean': {'font': 'inter', 'emphFont': 'inter', 'size': 80, 'emphSize': 130, 'color': '#FFFFFF',
               'emphColor': '#FFE14D', 'case': 'auto', 'emphCase': 'upper', 'emphItalic': True, 'shadow': 'light',
-              'anim': 'soft', 'emphSfx': None, 'y': 1240, 'curve': 0, 'tilt': 0, 'emphBox': None},
+              'anim': 'soft', 'emphSfx': None, 'y': 1240, 'curve': 0, 'tilt': 0, 'emphBox': None,
+              'sparkles': False, 'emphStickers': None},
 }
 
 
@@ -344,6 +348,7 @@ def caption_css(st):
            f".w.e{{font-family:{ef['family']},sans-serif;font-weight:{ef['weight']};"
            f"line-height:{0.95 if st['anim'] == 'pop' else 1};"
            f"letter-spacing:{ef['ls']};font-style:{'italic' if st['emphItalic'] else 'normal'}}}\n")
+    css += '.spk{display:block;filter:drop-shadow(0 2px 6px rgba(0,0,0,.25))}\n'
     if st['shadow'] == 'box' and not st['curve']:
         css += '.cap-in{background:rgba(12,12,12,.62);border-radius:24px;padding:4px 28px 12px}\n'
     # arched captions: SVG text on a path. Text shadows do not reach SVG text, so the shadow is a drop-shadow filter
@@ -382,6 +387,8 @@ def build_captions(c, caps, st):
             words = ''.join(f'<span class="w e" style="color:{col};font-size:{fs}px">{esc(t)}</span>' for t in texts)
             if st['emphBox'] == 'pill' and not st['curve']:
                 words = f'<span class="pill" style="background:{col};color:{ink_on(col)}">{words}</span>'
+            if st['sparkles']:
+                words = sparkle_svg('l', col, fs) + words + sparkle_svg('r', col, fs)
         else:
             texts = [cased(w['t'], st['case'], w.get('ss')) for w in g['words']]
             ratio = FONTS[st['font']]['ratio'] * (UPPER if st['case'] == 'upper' else 1)
@@ -398,7 +405,7 @@ def build_captions(c, caps, st):
                    f'ease:"power3.out"}},{g["start"]:.3f});')
         rot = ((k * 37) % 9 - 4) if is_emph else 0     # deterministic small tilt per emphasis
         for i, w in enumerate(g['words']):
-            sel = f'#{gid} .w:nth-child({i + 1})'
+            sel = f'#{gid} span.w:nth-of-type({i + 1})'
             t = max(g['start'], min(w['s'], g['end'] - 0.1))
             if st['anim'] == 'none':
                 c.anim(f'tl.fromTo("{sel}",{{opacity:0}},{{opacity:1,duration:0.04}},{t:.3f});')
@@ -417,8 +424,48 @@ def build_captions(c, caps, st):
         if is_emph and pop:
             c.anim(f'tl.to("#{gid} .cap-in",{{scale:1.06,duration:{max(0.2, dur - 0.25):.3f},ease:"sine.inOut"}},'
                    f'{g["start"] + 0.24:.3f});')
+        if is_emph and st['sparkles']:
+            c.anim(f'tl.fromTo("#{gid} .spk",{{scale:0,rotation:-90,opacity:0}},{{scale:1,rotation:0,opacity:1,'
+                   f'duration:0.35,ease:"back.out(2.5)",stagger:0.08}},{g["start"] + 0.05:.3f});')
+            c.anim(f'tl.to("#{gid} .spk",{{scale:0.7,duration:0.4,ease:"sine.inOut",yoyo:true,'
+                   f'repeat:{max(0, int((dur - 0.4) / 0.4) - 1)}}},{g["start"] + 0.4:.3f});')
         if is_emph and st['emphSfx']:
             c.sfx(st['emphSfx'], g['start'], 1.0 if pop else 0.6)
+
+
+SPARKLE = 'M12 0C12.8 6.6 15.4 9.6 24 12C15.4 14.4 12.8 17.4 12 24C11.2 17.4 8.6 14.4 0 12C8.6 9.6 11.2 6.6 12 0Z'
+
+
+def sparkle_svg(side, col, fs):
+    """A four-point sparkle next to an emphasis (the girly look): one big and one small, on each side."""
+    small = 'width:0.32em;height:0.32em;margin-bottom:0.55em' if side == 'l' else 'width:0.5em;height:0.5em'
+    big = 'width:0.5em;height:0.5em' if side == 'l' else 'width:0.32em;height:0.32em;margin-bottom:0.55em'
+    star = lambda sz, fill: (f'<svg class="spk" viewBox="0 0 24 24" style="{sz};flex:none;overflow:visible">'  # noqa
+                             f'<path d="{SPARKLE}" fill="{fill}"/></svg>')
+    box = (f'<i class="spks" style="display:inline-flex;align-items:flex-end;gap:0.06em;align-self:center;'
+           f'font-size:{fs}px">')
+    return box + (f'{star(small, "#FFFFFF")}{star(big, col)}</i>' if side == 'l' else
+                  f'{star(big, col)}{star(small, "#FFFFFF")}</i>')
+
+
+DECOR = ('brillo', 'estrella', 'corazon', 'disco')   # stickers from a pack that work as decoration
+
+
+def emph_stickers(c, caps, st):
+    """A sticker from the pack pops in beside every emphasis, alternating sides (the girly look)."""
+    pack = os.path.join(stickers.STICKERS_DIR, st['emphStickers'])
+    names = sorted(os.path.splitext(os.path.basename(f))[0] for f in glob.glob(os.path.join(pack, '*.png'))
+                   if os.path.basename(f).startswith(DECOR))
+    if not names:
+        common.say(f'captions.emphStickers: no hay stickers de decoración en {pack} (scripts/stickers.py cut)')
+        return
+    for n, g in enumerate(gr for gr in caps if gr.get('emph')):
+        y = (g.get('y') or st['y']) - 190
+        left = n % 2 == 0
+        ins_media(c, {'src': f'sticker:{st["emphStickers"]}/{names[(n * 7) % len(names)]}', 'mode': 'sticker',
+                      'start': g['start'], 'end': max(g['end'], g['start'] + 1.2), 'w': 170,
+                      'x': 70 if left else W - 70 - 170, 'y': max(SAFE['top'], y), 'rot': -12 if left else 10,
+                      'sfx': None if st['emphSfx'] else 'pop'}, video=False)
 
 
 def build_arc_caption(c, g, k, gid, dur, texts, is_emph, col, y, st):
@@ -638,9 +685,22 @@ def ins_title(c, it):
     return behind
 
 
+def sticker_src(c, src):
+    """'sticker:pack/name' -> a copy in the project's assets/stickers (the packs live in ~/reel-stickers)."""
+    path = stickers.resolve(src)
+    if not path:
+        return src
+    if not os.path.exists(path):
+        common.die(f'no existe el sticker {src} (PY scripts/stickers.py list)')
+    rel = 'assets/stickers/' + src[len('sticker:'):].replace('/', '-') + '.png'
+    os.makedirs(os.path.join(c.project, 'assets', 'stickers'), exist_ok=True)
+    shutil.copy(path, os.path.join(c.project, rel))
+    return rel
+
+
 def ins_media(c, it, video):
     i = c.uid('media')
-    src = it['src']
+    src = sticker_src(c, it['src'])
     mode = it.get('mode', 'full')
     dur = it['end'] - it['start']
     mw, mh = media_size(os.path.join(c.project, src))
@@ -683,6 +743,58 @@ def ins_media(c, it, video):
         c.anim(f'tl.to("#{i} .frame",{{scale:0.6,opacity:0,duration:0.15,ease:"power2.in"}},'
                f'{it["end"] - 0.15:.3f});tl.set("#{i} .frame",{{opacity:0}},{it["end"]:.3f});')
         c.sfx(it.get('sfx', 'pop'), it['start'])
+
+
+CLIP = ('<svg class="note-clip" viewBox="0 0 40 110" fill="none" stroke="url(#chrome)" stroke-width="5" '
+        'stroke-linecap="round"><defs><linearGradient id="chrome" x1="0" x2="1"><stop offset="0" stop-color="#8d8f96"/>'
+        '<stop offset=".45" stop-color="#f4f5f8"/><stop offset="1" stop-color="#7c7e85"/></linearGradient></defs>'
+        '<path d="M28 34V86a10 10 0 0 1-20 0V22a14 14 0 0 1 28 0V78a6 6 0 0 1-12 0V34"/></svg>')
+
+
+def ins_note(c, it):
+    """A notebook card (lined paper, red margin, punched holes, a paperclip and a strip of tape) with handwritten text
+    that writes itself, and stickers from a pack on the corners: the girly "nota" look.
+    {"type": "note", "text": "...", "start", "end", "x", "y", "w", "rot", "paper": "lined"/"pink",
+     "font": "caveat"/"dmserif", "stickers": "girly" (or null), "color": ink colour}"""
+    i = c.uid('note')
+    dur = it['end'] - it['start']
+    w = it.get('w', 640)
+    x, y = it.get('x', (W - w) // 2), it.get('y', SAFE['top'] + 40)
+    rot = it.get('rot', -3)
+    font = FONTS.get(it.get('font', 'caveat'), FONTS['caveat'])
+    words = it['text'].split()
+    fs = it.get('size', 56 if it.get('font', 'caveat') == 'caveat' else 44)
+    text = ''.join(f'<span class="nw">{esc(t)} </span>' for t in words)
+    deco = ''
+    pack = it.get('stickers', 'girly')
+    names = sorted(os.path.splitext(os.path.basename(f))[0]
+                   for f in glob.glob(os.path.join(stickers.STICKERS_DIR, pack or '-', '*.png'))
+                   if os.path.basename(f).startswith(DECOR)) if pack else []
+    spots = [(-60, -70, 170, -14), (w - 120, None, 150, 12), (-40, None, 120, 8)]
+    for k, (dx, dy, sw, r) in enumerate(spots[:3] if names else []):
+        src = sticker_src(c, f'sticker:{pack}/{names[(k * 5 + len(it["text"])) % len(names)]}')
+        top = f'top:{dy}px' if dy is not None else f'bottom:{-40 - 20 * k}px'
+        deco += (f'<img class="note-st" src="{esc(src)}" style="left:{dx}px;{top};width:{sw}px;'
+                 f'transform:rotate({r}deg)" alt="">')
+    paper = 'pink' if it.get('paper') == 'pink' else 'lined'
+    c.add(6, f'<div id="{i}" class="clip note {paper}" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+             f'data-track-index="6" style="left:{x}px;top:{y}px;width:{w}px"><div class="note-in" '
+             f'style="transform:rotate({rot}deg)"><div class="note-paper" style="--lh:{int(fs * 1.12)}px">'
+             f'<div class="note-tx" style="font-family:{font["family"]},cursive;font-weight:{font["weight"]};'
+             f'font-size:{fs}px;line-height:{int(fs * 1.12)}px;color:{it.get("color", "#3b2a3a")}">{text}</div>'
+             f'</div>{CLIP}'
+             f'<div class="note-tape"></div>{deco}</div></div>')
+    c.anim(f'tl.fromTo("#{i} .note-in",{{y:-70,rotation:{rot - 7},opacity:0}},{{y:0,rotation:{rot},opacity:1,'
+           f'duration:0.45,ease:"back.out(1.6)"}},{it["start"]:.3f});')
+    c.anim(f'tl.fromTo("#{i} .note-st",{{scale:0,opacity:0}},{{scale:1,opacity:1,duration:0.3,ease:"back.out(2.5)",'
+           f'stagger:0.1}},{it["start"] + 0.35:.3f});')
+    span = min(dur * 0.6, 0.18 * len(words))
+    c.anim(f'tl.fromTo("#{i} .nw",{{opacity:0,y:8}},{{opacity:1,y:0,duration:0.12,stagger:{span / max(1, len(words)):.3f}}},'
+           f'{it["start"] + 0.4:.3f});')
+    c.anim(f'tl.to("#{i} .note-in",{{opacity:0,y:30,duration:0.2,ease:"power2.in"}},{it["end"] - 0.2:.3f});'
+           f'tl.set("#{i} .note-in",{{opacity:0}},{it["end"]:.3f});')
+    c.sfx(it.get('sfx', 'whoosh'), it['start'] - 0.05, 0.6)
+    c.sfx('pop', it['start'] + 0.35, 0.5)
 
 
 def ins_scribble(c, it):
@@ -846,6 +958,20 @@ html,body{margin:0;background:#000;overflow:hidden}
 .ins.sticker .frame{overflow:visible;filter:drop-shadow(0 16px 24px rgba(0,0,0,.45))}
 .ins img,.ins video{width:100%;height:100%;object-fit:cover;display:block}
 .ins.sticker img{object-fit:contain}
+.note{position:absolute}
+.note-in{position:relative;filter:drop-shadow(0 18px 30px rgba(60,30,50,.28))}
+.note-paper{position:relative;background:#FFFDF8;border-radius:6px;padding:56px 46px 56px 110px;min-height:200px}
+.note.lined .note-paper{background:repeating-linear-gradient(#FFFDF8 0 calc(var(--lh) - 2px),#CBD7F1 calc(var(--lh) - 2px) var(--lh)) 0 calc(56px + var(--lh) * 0.18)/100% 100%,#FFFDF8}
+.note.pink .note-paper{background:#FFF6F8;box-shadow:0 0 0 26px #F9C9D8,0 0 0 26px #F9C9D8}
+.note-paper::before{content:"";position:absolute;left:88px;top:0;bottom:0;width:2px;background:#EBA2AC}
+.note-paper::after{content:"";position:absolute;left:30px;top:22%;width:30px;height:56%;
+  background:radial-gradient(circle,#E9E4E6 0 13px,transparent 14px) 0 0/30px 33.3% repeat-y}
+.note-tx{position:relative;font-feature-settings:'liga' 1}
+.nw{display:inline-block;white-space:pre}
+.note-clip{position:absolute;right:70px;top:-58px;width:46px;height:126px}
+.note-tape{position:absolute;right:-26px;bottom:34px;width:150px;height:46px;background:rgba(247,170,198,.78);
+  transform:rotate(-32deg);clip-path:polygon(4% 0,96% 0,100% 20%,96% 40%,100% 60%,96% 80%,100% 100%,0 100%,4% 80%,0 60%,4% 40%,0 20%)}
+.note-st{position:absolute;filter:drop-shadow(0 6px 10px rgba(60,30,50,.25))}
 .scribble{position:absolute;font-family:'Caveat',cursive;font-weight:700;line-height:0.95;
   text-shadow:OUTLINE}
 .scr-in{display:flex;flex-wrap:wrap;gap:0 0.25em}
@@ -925,6 +1051,8 @@ def main():
         c.grade = (reel['grade'], round(float(reel.get('gradeAmount', 1.0)), 2))
     cap_style = caption_style(reel.get('captions', {}), cfg)
     build_captions(c, caps, cap_style)
+    if cap_style['emphStickers']:
+        emph_stickers(c, caps, cap_style)
 
     needs_cutout = False
     for it in sorted(reel.get('inserts', []), key=lambda x: x['start']):
@@ -937,6 +1065,8 @@ def main():
             ins_media(c, it, video=False)
         elif t == 'scribble':
             ins_scribble(c, it)
+        elif t == 'note':
+            ins_note(c, it)
         elif t == 'profile':
             ins_profile(c, it)
         elif t == 'steps':

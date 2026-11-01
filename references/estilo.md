@@ -70,3 +70,11 @@ rise + click + ding en la tarjeta de perfil. Volumen general en `reel.json` `sfx
 ## Color de cámara
 Los iPhone graban en HDR (HLG). `assemble.py` lo pasa a SDR con un LUT propio (`make_lut.py`). Exposición en
 `config.json` `hdrExposure`: 0.62 es natural; bajala (0.55) si la piel se quema, subila (0.7) si queda oscuro.
+
+## Girly aesthetic (cuando la persona lo pide)
+Sale de reels de creadoras de lifestyle: el texto arriba de la cabeza, blanco bold (Montserrat Bold) con la palabra
+clave en rosa bebé `#F9B4D0` o en serif itálica amarilla pálida `#F8EDA8`, brillitos ✦ a los costados, un sticker
+(estrella con glitter, corazón cromado, bola de disco, brillo cromado) que aparece con pop en cada destacado, y alguna
+nota de cuaderno (`note`) para una lista o un tip. Presets "Girly" y "Girly serif" del estudio. Los stickers salen de
+`~/reel-stickers/girly` (recortados de las imágenes que pasó la persona con `scripts/stickers.py cut`); para sumar más,
+`cut` con las imágenes nuevas y mirá `sheet.jpg`. Menos es más: 1 sticker por destacado, 1 nota cada 15-20 s.

@@ -63,6 +63,8 @@ de un solo color (`emphColor`, default `#FFE14D`) y entrada suave sin rebote. Va
 | `curve` | px que bajan las puntas del arco: 0 = recto; 150-250 = el subtítulo en arco sobre la cabeza, como un halo (con `y` ~430) | 0 |
 | `tilt` | hasta cuántos grados se inclina cada subtítulo (uno distinto por subtítulo) | 0 |
 | `emphBox` | `"pill"`: el destacado sobre una píldora de `emphColor` con letra negra o blanca (el look MIRA). No va con `curve` | `null` |
+| `sparkles` | `true`: brillitos ✦ (uno blanco chico y uno del color del destacado) a cada lado de los destacados | `false` |
+| `emphStickers` | nombre de un pack de `~/reel-stickers` (`"girly"`): en cada destacado aparece con pop un sticker del pack (estrellas, brillos, corazones, bolas de disco), alternando izquierda y derecha | `null` |
 
 Los estilos base del estudio (`assets/studio/options.json` -> `presets`) son combinaciones de estas claves: Pop,
 Clean, Bold, Impacto, Editorial, Caja, Arco (minúscula amarilla pálida en arco y remate en serif itálica, de una
@@ -83,8 +85,9 @@ Todos llevan `type`, `start`, `end`. Opcional en todos: `sfx` (nombre del sonido
 
 | type | Campos | Notas |
 |---|---|---|
+| `note` | `text`, `x`, `y`, `w` (640), `rot`, `paper` (`lined`/`pink`), `font` (`caveat`/`dmserif`), `size`, `stickers` (pack para las esquinas, `null` = sin), `color` | tarjeta de cuaderno con renglones, margen, agujeros, clip y cinta; el texto se escribe solo. Va donde hay lugar (arriba de la cabeza o al costado), nunca sobre la cara: mientras está, bajá los subtítulos de ese momento al pecho (`"y": 1240` en `captions.json`) |
 | `title` | `text`, `behind`, `color`, `y`, `size`, `font` (`cal`/`hand`), `clipTop` | `behind: true` necesita `cutout.py`. `clipTop` = desde qué altura tapa la cabeza (default: deja ~80 % de la letra) |
-| `image` | `src`, `mode` (`card`/`sticker`/`full`), `x`, `y`, `w`, `maxH`, `rot` | `src` relativo al proyecto, en `assets/` |
+| `image` | `src`, `mode` (`card`/`sticker`/`full`), `x`, `y`, `w`, `maxH`, `rot` | `src` relativo al proyecto, en `assets/`, o `"sticker:<pack>/<nombre>"` de `~/reel-stickers` (`scripts/stickers.py list`) |
 | `broll` | igual que `image` + `mediaStart` | video sin sonido; `full` cubre todo el cuadro |
 | `scribble` | `text`, `x`, `y`, `w`, `rot`, `size`, `color` | Caveat, se escribe palabra por palabra |
 | `steps` | `items` (2-4 textos cortos), `times` (uno por item), `title`, `highlight` (índices), `y`, `color` | chips con flechas |
