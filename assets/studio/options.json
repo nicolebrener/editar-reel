@@ -122,6 +122,28 @@
         "emphSize": 120,
         "emphBox": "pill"
       }
+    },
+    {
+      "label": "Cine",
+      "hint": "Una palabra crema con sombra a media altura y color de cine (verde salvia, piel dorada, grano)",
+      "captions": {
+        "style": "clean",
+        "font": "inter",
+        "emphFont": "inter",
+        "color": "#F3DCA7",
+        "emphColor": "#F3DCA7",
+        "case": "lower",
+        "emphCase": "lower",
+        "emphItalic": false,
+        "shadow": "soft",
+        "anim": "soft",
+        "size": 112,
+        "emphSize": 132,
+        "y": 1120
+      },
+      "set": {
+        "grade": "cine"
+      }
     }
   ],
   "presetKeys": [
@@ -144,6 +166,52 @@
     "emphBox"
   ],
   "groups": [
+    {
+      "label": "Color de la imagen",
+      "controls": [
+        {
+          "key": "grade",
+          "label": "Look",
+          "type": "segment",
+          "choices": [
+            {
+              "v": null,
+              "label": "Natural"
+            },
+            {
+              "v": "cine",
+              "label": "Cine",
+              "dot": "#7E9C86"
+            },
+            {
+              "v": "calido",
+              "label": "Cálido",
+              "dot": "#E2A35C"
+            },
+            {
+              "v": "film",
+              "label": "Film lavado",
+              "dot": "#B9B3A0"
+            },
+            {
+              "v": "frio",
+              "label": "Frío",
+              "dot": "#6F8FB0"
+            }
+          ],
+          "hint": "En la vista previa tarda unos segundos la primera vez; en el render se aplica sobre el 4K"
+        },
+        {
+          "key": "gradeAmount",
+          "label": "Intensidad",
+          "type": "range",
+          "min": 0.2,
+          "max": 1.5,
+          "step": 0.1,
+          "unit": "×"
+        }
+      ]
+    },
     {
       "label": "Tipografía",
       "controls": [
@@ -179,7 +247,8 @@
             "#FFD60A",
             "#FFE14D",
             "#F6EB8F",
-            "#F5F0E6"
+            "#F5F0E6",
+            "#F3DCA7"
           ]
         },
         {

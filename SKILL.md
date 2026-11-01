@@ -146,4 +146,5 @@ render como `vN+1`. Nunca pises versiones.
 | "más/menos efectos de sonido" | `reel.json` `sfx.gain` (0 apaga todo) |
 | "muy oscuro / muy claro" | `config.json` `hdrExposure` (0.5 a 0.75) -> `assemble.py` |
 | "sin zoom en las palabras" | `reel.json` `"autoZoom": false` |
+| "más cinematográfico" / "otro color de imagen" | `reel.json` `"grade": "cine"` (o `calido`, `film`, `frio`) y `gradeAmount`; o el estudio |
 | "quiero ver otras letras / colores / estilos" | el estudio (paso 6b), o `reel.json` `captions` (`references/plan.md`) |

@@ -303,7 +303,8 @@ function applyPreset(p) {
     const cap = { ...(reel.captions || {}) };
     for (const k of S.options.presetKeys || []) delete cap[k];
     reel.captions = { ...cap, ...JSON.parse(JSON.stringify(p.captions || {})) };
-  }, 0, 'emph');
+    for (const [k, v] of Object.entries(p.set || {})) deepSet(reel, k, v);   // e.g. the colour look of "Cine"
+  }, 0, 'caption');
 }
 
 function control(ctl) {

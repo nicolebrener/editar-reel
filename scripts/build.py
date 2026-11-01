@@ -1,6 +1,7 @@
 """Paso 6: writes <project>/index.html (the HyperFrames composition) from the project's JSON files.
 
     PY scripts/build.py <project> [--safe]      # --safe draws the Reels safe zone in red (for snapshots only)
+                                                # --preview: for the studio, the colour grade is not baked
 
 Inputs:  aroll.mp4, segments.json, captions.json, reel.json (optional),
          assets/cutout.webm (needed only when a title is "behind": true)
@@ -114,6 +115,8 @@ class Comp:
         self.css, self.layers, self.tl, self.audio = [], {}, [], []
         self.n = 0
         self.clips = []   # (start, end, y): cutout transparent above y during that window
+        self.grade = None   # (look, amount) from reel.json "grade" / "gradeAmount"
+        self.preview = False
 
     def uid(self, p):
         self.n += 1
@@ -134,6 +137,101 @@ class Comp:
         self.audio.append(f'<audio id="{i}" src="assets/sfx/{name}.mp3" data-start="{t:.3f}" '
                           f'data-duration="{d:.3f}" data-track-index="{100 + len(self.audio)}" '
                           f'data-volume="{SFX_BASE.get(name, .3) * g:.3f}"></audio>')
+
+
+# ---------------------------------------------------------------- colour grade
+# Looks for the whole picture (reel.json "grade", "gradeAmount" 0-1.5). Baked with ffmpeg into the a-roll, the cutout
+# and the b-roll, because HyperFrames composites video frames itself and ignores CSS filters. In RGB, so the cutout
+# keeps its alpha. bal = colorbalance shadows/mids/highlights (r, g, b each), curve = master curve, sat = saturation,
+# grain = film grain, vignette = vignette angle (0 = none), rgb = optional red/green/blue curves
+GRADES = {
+    # teal-green shadows and walls, golden skin and highlights, soft deep blacks, grain: the "cinematic" reference
+    'cine':   {'bal': (-0.04, 0.02, 0.05, -0.03, 0.03, 0.0, 0.03, 0.0, -0.04),
+               'curve': '0/0.03 0.25/0.2 0.5/0.45 0.75/0.73 1/0.94',
+               'rgb': ('0/0 0.25/0.22 0.5/0.46 0.75/0.72 1/0.86', '0/0.03 0.25/0.26 0.5/0.53 0.75/0.79 1/0.95',
+                       '0/0.05 0.25/0.24 0.5/0.45 0.75/0.7 1/0.86'),
+               'sat': 0.92, 'grain': 7, 'vignette': 0.6},
+    'calido': {'bal': (0.02, 0.0, -0.04, 0.05, 0.02, -0.05, 0.06, 0.03, -0.06),
+               'curve': '0/0.03 0.5/0.52 1/0.98', 'sat': 1.0, 'grain': 4, 'vignette': 0.45},
+    'film':   {'bal': (-0.03, 0.03, 0.0, 0.0, 0.01, -0.02, 0.03, 0.02, -0.03),
+               'curve': '0/0.09 0.3/0.3 0.7/0.72 1/0.92', 'sat': 0.72, 'grain': 9, 'vignette': 0.5},
+    'frio':   {'bal': (-0.06, 0.0, 0.10, -0.06, 0.0, 0.07, -0.02, 0.0, 0.05),
+               'curve': '0/0.03 0.25/0.19 0.5/0.47 0.75/0.78 1/0.96', 'sat': 0.78, 'grain': 5, 'vignette': 0.6},
+}
+
+
+def grade_filter(name, k=1.0, alpha=False):
+    """ffmpeg filter chain for a look at strength k. alpha=True keeps the alpha channel (no vignette there: the
+    cutout is transparent at the edges anyway)."""
+    g = GRADES[name]
+    fmt = 'gbrap' if alpha else 'gbrp'
+    bal = ':'.join(f'{n}={v * k:.3f}' for n, v in zip(('rs', 'gs', 'bs', 'rm', 'gm', 'bm', 'rh', 'gh', 'bh'), g['bal']))
+    def toward(curve):   # the curve at strength k: k=0 is the identity
+        return ' '.join(f'{x}/{float(x) + k * (float(y) - float(x)):.3f}' for x, y in (p.split('/') for p in curve.split()))
+    pts = toward(g['curve'])
+    if g.get('rgb'):     # per-channel curves: what pulls light walls to sage green while skin stays golden
+        pts += "':r='" + toward(g['rgb'][0]) + "':g='" + toward(g['rgb'][1]) + "':b='" + toward(g['rgb'][2])
+    sat = 1 - (1 - g['sat']) * k
+    lr, lg, lb = ((1 - sat) * w for w in (0.2126, 0.7152, 0.0722))
+    mix = (f'colorchannelmixer=rr={sat + lr:.3f}:rg={lg:.3f}:rb={lb:.3f}:gr={lr:.3f}:gg={sat + lg:.3f}:gb={lb:.3f}:'
+           f'br={lr:.3f}:bg={lg:.3f}:bb={sat + lb:.3f}')
+    chain = [f'format={fmt}', f'colorbalance={bal}', f"curves=master='{pts}'", mix]
+    if not alpha and g['vignette'] * k > 0.02:
+        chain.append(f'vignette=angle={g["vignette"] * min(k, 1.2):.3f}')
+    return ','.join(chain + ['format=yuva420p' if alpha else 'format=yuv420p'])
+
+
+def grain_overlay(c, total):
+    """Film grain as its own semi-transparent layer over the picture, not baked in: grain inside the a-roll makes it
+    almost incompressible (gigabytes in 4K). Rendered small, so the grain comes out soft and filmic."""
+    name, k = c.grade
+    alpha = min(0.4, GRADES[name]['grain'] * k / 38)
+    if alpha < 0.03:
+        return ''
+    rel = f'assets/grain-{alpha:.2f}-{total:.2f}.webm'
+    out = os.path.join(c.project, rel)
+    if not os.path.exists(out):
+        for old in glob.glob(os.path.join(c.project, 'assets', 'grain-*.webm')):
+            os.remove(old)
+        common.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i',
+                    f'color=c=gray:s=360x640:r={common.FPS}:d={total:.3f}', '-vf',
+                    f'noise=alls=60:allf=t+u,format=rgba,colorchannelmixer=aa={alpha:.3f}', '-c:v', 'libvpx-vp9',
+                    '-pix_fmt', 'yuva420p', '-b:v', '0', '-crf', '48', '-deadline', 'realtime', '-cpu-used', '8',
+                    '-row-mt', '1', '-an', out + '.tmp.webm'])
+        os.replace(out + '.tmp.webm', out)
+    return (f'<div class="layer" id="grain"><video class="clip" src="{rel}" data-start="0" data-duration="{total:.3f}" '
+            f'data-track-index="7" muted playsinline style="position:absolute;left:0;top:0;width:{W}px;height:{H}px;'
+            f'object-fit:cover"></video></div>')
+
+
+def graded(c, rel):
+    """(src, extra attributes) for a video under the reel's look. In the studio preview the look goes on the small
+    proxies instead (data-grade); for the render the video is baked once per look and cached."""
+    if not c.grade:
+        return rel, ''
+    name, k = c.grade
+    if c.preview:
+        return rel, f' data-grade="{name}:{k:g}"'
+    src = os.path.join(c.project, rel)
+    alpha = rel.endswith('.webm')
+    key = hashlib.md5(json.dumps(['v2', rel, os.path.getmtime(src), os.path.getsize(src), name, k]).encode()
+                      ).hexdigest()[:8]
+    out_rel = f'assets/graded/{os.path.splitext(os.path.basename(rel))[0]}-{key}{".webm" if alpha else ".mp4"}'
+    out = os.path.join(c.project, out_rel)
+    if not os.path.exists(out):
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        common.say(f'aplicando el color "{name}" a {rel} (~1 min en 4K)')
+        cmd = ['ffmpeg', '-v', 'error', '-y'] + (['-c:v', 'libvpx-vp9'] if alpha else []) + ['-i', src, '-vf',
+                                                                                             grade_filter(name, k, alpha)]
+        if alpha:
+            cmd += ['-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-b:v', '0', '-crf', '20', '-row-mt', '1',
+                    '-tile-columns', '2', '-deadline', 'good', '-cpu-used', '4', '-an']
+        else:
+            cmd += ['-c:v', 'libx264', '-preset', 'medium', '-crf', '14', '-c:a', 'copy', '-movflags', '+faststart',
+                    '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709']
+        common.run(cmd + [out + ('.tmp.webm' if alpha else '.tmp.mp4')])
+        os.replace(out + ('.tmp.webm' if alpha else '.tmp.mp4'), out)
+    return out_rel, ''
 
 
 # ---------------------------------------------------------------- captions
@@ -203,6 +301,7 @@ def studio_values(reel, cfg):
     vals = {f'captions.{k}': v for k, v in st.items()}
     vals['captions.emphColor'] = reel.get('captions', {}).get('emphColor', st['emphColor'])
     vals.update({'titleFont': reel.get('titleFont', 'cal'), 'autoZoom': reel.get('autoZoom', True),
+                 'grade': reel.get('grade'), 'gradeAmount': reel.get('gradeAmount', 1.0),
                  'sfx.gain': reel.get('sfx', {}).get('gain', 1.0)})
     return vals
 
@@ -559,7 +658,8 @@ def ins_media(c, it, video):
         box = f'left:{x}px;top:{y}px;width:{w}px;height:{h}px'
         cls = mode
     if video:
-        el = (f'<video id="{i}v" src="{esc(src)}" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+        gsrc, gattr = graded(c, src)
+        el = (f'<video id="{i}v" src="{esc(gsrc)}"{gattr} data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
               f'data-media-start="{it.get("mediaStart", 0)}" data-track-index="5" muted playsinline></video>')
         c.add(5, f'<div id="{i}" class="ins {cls}" style="{box}"><div class="frame">{el}</div></div>')
         # the wrapper is not timed (the video is), so fade it with the timeline
@@ -818,6 +918,11 @@ def main():
         common.die('falta assets/vendor/gsap.min.js: correr scripts/setup.py')
 
     c = Comp(cfg, project, safe)
+    c.preview = '--preview' in sys.argv
+    if reel.get('grade'):
+        if reel['grade'] not in GRADES:
+            common.die(f'grade: no existe "{reel["grade"]}" (hay: {", ".join(GRADES)})')
+        c.grade = (reel['grade'], round(float(reel.get('gradeAmount', 1.0)), 2))
     cap_style = caption_style(reel.get('captions', {}), cfg)
     build_captions(c, caps, cap_style)
 
@@ -891,12 +996,16 @@ def main():
            .replace('SR', f'{W - SAFE["right_low"]}px'))
     lights = [it for it in reel.get('inserts', []) if it['type'] == 'light']
     aroll_src = lit_aroll(project, cfg, lights) if lights else 'aroll.mp4'
-    stage = [f'<video id="aroll" class="clip" src="{aroll_src}" data-start="0" data-duration="{total:.3f}" '
+    aroll_src, aroll_attr = graded(c, aroll_src)
+    stage = [f'<video id="aroll" class="clip" src="{aroll_src}"{aroll_attr} data-start="0" data-duration="{total:.3f}" '
              f'data-track-index="0" playsinline data-has-audio="true"></video>']
     stage.append('<div class="layer" id="behind">' + ''.join(c.layers.pop(2, [])) + '</div>')
     if needs_cutout:
-        stage.append(f'<video id="cutout" class="clip" src="{clipped_cutout(project, c.clips)}" data-start="0" '
+        cut_src, cut_attr = graded(c, clipped_cutout(project, c.clips))
+        stage.append(f'<video id="cutout" class="clip" src="{cut_src}"{cut_attr} data-start="0" '
                      f'data-duration="{total:.3f}" data-track-index="1" muted playsinline></video>')
+    if c.grade:   # grain goes over the picture and the inserts, under the captions (z8) and the flash
+        c.layers.setdefault(7, []).append(grain_overlay(c, total))
     layers = ''.join(f'<div class="layer" id="z{z}">' + ''.join(v) + '</div>' for z, v in sorted(c.layers.items()))
     guide = ''
     if safe:

@@ -77,9 +77,11 @@ class Studio:
                         'time': time.strftime('%d/%m %H:%M', time.localtime(os.path.getmtime(p)))})
         return out
 
-    def build(self):
+    def build(self, preview=True):
+        # --preview: the colour grade goes on the small proxies, not baked into the 4K videos (that takes minutes)
         with self.build_lock:
-            r = subprocess.run([sys.executable, os.path.join(SCRIPTS, 'build.py'), self.project], text=True,
+            r = subprocess.run([sys.executable, os.path.join(SCRIPTS, 'build.py'), self.project]
+                               + (['--preview'] if preview else []), text=True,
                                capture_output=True, encoding='utf-8', errors='replace')
         return r.returncode == 0, (r.stdout + r.stderr).strip()
 
@@ -102,10 +104,19 @@ class Studio:
                 self.widths[key] = 0
         return self.widths[key]
 
-    def proxy(self, rel):
+    def proxy(self, rel, grade=''):
+        """A small copy of a video for the preview, with the reel's colour grade ("look:amount") when it has one."""
         src = os.path.join(self.project, rel)
         st = os.stat(src)
-        key = hashlib.md5(f'{rel}|{st.st_mtime}|{st.st_size}'.encode()).hexdigest()[:12]
+        key = hashlib.md5(f'{rel}|{st.st_mtime}|{st.st_size}|{grade}'.encode()).hexdigest()[:12]
+        look = ''
+        if grade:
+            sys.path.insert(0, SCRIPTS)
+            import importlib
+            import build
+            importlib.reload(build)
+            name, k = grade.split(':')
+            look = ',' + build.grade_filter(name, float(k), alpha=rel.endswith('.webm'))
         ext = os.path.splitext(rel)[1]
         out = os.path.join(self.project, 'work', 'preview', key + ext)
         lock = self.proxy_locks.setdefault(key, threading.Lock())
@@ -115,11 +126,11 @@ class Studio:
                 tmp = out + '.tmp' + ext
                 common.say(f'preparando la vista previa de {rel}')
                 if ext == '.webm':   # keeps the alpha channel (the cutout)
-                    cmd = ['ffmpeg', '-v', 'error', '-y', '-c:v', 'libvpx-vp9', '-i', src, '-vf', f'scale={PROXY_W}:-2',
+                    cmd = ['ffmpeg', '-v', 'error', '-y', '-c:v', 'libvpx-vp9', '-i', src, '-vf', f'scale={PROXY_W}:-2{look}',
                            '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-b:v', '0', '-crf', '36', '-deadline',
                            'realtime', '-cpu-used', '8', '-row-mt', '1', '-g', '15', '-an', tmp]
                 else:
-                    cmd = ['ffmpeg', '-v', 'error', '-y', '-i', src, '-vf', f'scale={PROXY_W}:-2', '-c:v', 'libx264',
+                    cmd = ['ffmpeg', '-v', 'error', '-y', '-i', src, '-vf', f'scale={PROXY_W}:-2{look}', '-c:v', 'libx264',
                            '-preset', 'veryfast', '-crf', '22', '-g', '15', '-pix_fmt', 'yuv420p', '-c:a', 'aac',
                            '-b:a', '160k', '-movflags', '+faststart', tmp]
                 common.run(cmd)
@@ -132,13 +143,16 @@ class Studio:
             html = f.read()
 
         def swap(m):
-            rel = m.group(2)
+            tag = m.group(0)
+            rel = re.search(r'\bsrc="([^"]+)"', tag).group(1)
+            grade = re.search(r'\bdata-grade="([^"]+)"', tag)
             path = os.path.join(self.project, rel)
-            if rel.endswith(('.mp4', '.webm')) and os.path.exists(path) and self.width(path) > PROXY_W * 1.6:
-                return f'{m.group(1)}/proxy/{urllib.parse.quote(rel)}"'
-            return m.group(0)
+            if rel.endswith(('.mp4', '.webm')) and os.path.exists(path) and (grade or self.width(path) > PROXY_W * 1.6):
+                url = '/proxy/' + urllib.parse.quote(rel) + ('?g=' + urllib.parse.quote(grade.group(1)) if grade else '')
+                return tag.replace(f'src="{rel}"', f'src="{url}"', 1)
+            return tag
 
-        html = re.sub(r'(<video\b[^>]*?\bsrc=")([^"]+)"', swap, html)
+        html = re.sub(r'<video\b[^>]*>', swap, html)
         html = html.replace('<head>', '<head>\n<script>window.__timelines = {};</script>', 1)
         return html.replace('</body>', '<script src="/studio/player.js"></script>\n</body>', 1)
 
@@ -164,7 +178,8 @@ class Studio:
     def _render(self):
         st = self.render
         try:
-            ok, log = self.build()
+            st['stage'] = 'aplicando el color en 4K' if self.reel().get('grade') else 'armando'
+            ok, log = self.build(preview=False)
             self._log(log)
             if not ok:
                 raise RuntimeError('build.py falló')
@@ -294,7 +309,8 @@ def make_handler(studio):
                 return self.send_file(p) if p else self.send_error(404)
             if path.startswith('/proxy/'):
                 p = self.inside(studio.project, path[len('/proxy/'):])
-                return self.send_file(studio.proxy(os.path.relpath(p, studio.project))) if p else self.send_error(404)
+                grade = urllib.parse.parse_qs(url.query).get('g', [''])[0]
+                return self.send_file(studio.proxy(os.path.relpath(p, studio.project), grade)) if p else self.send_error(404)
             self.send_error(404)
 
         def do_POST(self):

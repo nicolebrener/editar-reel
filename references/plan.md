@@ -68,6 +68,14 @@ Los estilos base del estudio (`assets/studio/options.json` -> `presets`) son com
 Clean, Bold, Impacto, Editorial, Caja, Arco (minúscula amarilla pálida en arco y remate en serif itálica, de una
 referencia de la persona), Arco blanco y MIRA.
 
+### Color de la imagen (`grade`, `gradeAmount`)
+`"grade"`: `cine` (verde salvia en fondos y medios, piel dorada, negros suaves, grano y viñeta), `calido`, `film`
+(lavado y desaturado) o `frio`; `null` = natural. `"gradeAmount"` 0.2-1.5 (default 1). Se hornea con ffmpeg en el
+video principal, el recorte y el b-roll (una vez por look, en `assets/graded/`; ~1 min en 4K). El grano va aparte, como
+capa semitransparente (`assets/grain-*.webm`): dentro del video lo haría pesar gigas. En el estudio (`build.py
+--preview`) el color se aplica solo a las copias livianas de la vista previa. Un fondo que no es verde no se vuelve
+verde: el look tiñe, no repinta.
+
 Arriba de `captions`, `titleFont` (las mismas fuentes) cambia la de los títulos detrás de la cabeza.
 
 ### Tipos de insert
