@@ -18,6 +18,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import socketserver
 import subprocess
 import sys
@@ -85,13 +86,19 @@ class Studio:
                                capture_output=True, encoding='utf-8', errors='replace')
         return r.returncode == 0, (r.stdout + r.stderr).strip()
 
-    def save_reel(self, reel):
-        path = os.path.join(self.project, 'reel.json')
-        if not self.backed_up and os.path.exists(path):
-            # the reel as it was before this studio session, in case the person wants it back
-            shutil.copy(path, os.path.join(self.project, 'work', time.strftime('reel-antes-del-estudio-%Y%m%d-%H%M.json')))
+    def save_reel(self, reel, captions=None):
+        """Writes reel.json (and captions.json when the text was edited) and rebuilds."""
+        stamp = time.strftime('%Y%m%d-%H%M')
+        if not self.backed_up:
+            # both files as they were before this studio session, in case the person wants them back
+            for name in ('reel', 'captions'):
+                src = os.path.join(self.project, f'{name}.json')
+                if os.path.exists(src):
+                    shutil.copy(src, os.path.join(self.project, 'work', f'{name}-antes-del-estudio-{stamp}.json'))
             self.backed_up = True
-        common.write_json(path, reel)
+        common.write_json(os.path.join(self.project, 'reel.json'), reel)
+        if captions is not None:
+            common.write_json(os.path.join(self.project, 'captions.json'), captions)
         return self.build()
 
     # ------------------------------------------------------------ preview proxies
@@ -168,9 +175,32 @@ class Studio:
         if self.render['running']:
             return False
         self.render = {'running': True, 'progress': 0, 'stage': 'armando', 'log': [], 'out': None, 'phone': None,
-                       'error': None}
+                       'error': None, 'started': time.time(), 'eta': None}
+        self.proc = None
+        self.cancelled = False
         threading.Thread(target=self._render, daemon=True).start()
         return True
+
+    def cancel_render(self):
+        if self.render['running'] and getattr(self, 'proc', None):
+            self.cancelled = True
+            try:
+                if common.os_name() == 'windows':
+                    subprocess.run(['taskkill', '/T', '/F', '/PID', str(self.proc.pid)], capture_output=True)
+                else:
+                    pgid = os.getpgid(self.proc.pid)
+                    os.killpg(pgid, signal.SIGTERM)
+
+                    def force():   # the render's node process ignores SIGTERM: after 2 s, kill what is left
+                        try:
+                            os.killpg(pgid, signal.SIGKILL)
+                        except (ProcessLookupError, OSError):
+                            pass
+                    threading.Timer(2.0, force).start()
+            except (ProcessLookupError, OSError):
+                self.proc.terminate()
+            return True
+        return False
 
     def _log(self, line):
         self.render['log'] = (self.render['log'] + [line])[-60:]
@@ -187,7 +217,10 @@ class Studio:
             st['stage'] = 'renderizando en 4K'
             cmd = [common.npx(), '--yes', f'hyperframes@{common.HF_VERSION}', 'render', '-o', out, '--quality', 'high',
                    '--resolution', 'portrait-4k', '--crf', '14', '.']
-            p = subprocess.Popen(cmd, cwd=self.project, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            # its own process group: cancelling stops the CLI and every Chrome worker it started
+            p = self.proc = subprocess.Popen(cmd, cwd=self.project, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                             start_new_session=common.os_name() != 'windows')
+            t_cap = time.time()
             # the CLI says "Capturing frame 491/1401" (or redraws "Frame 491/1401" in place, without newlines, in a
             # terminal): read raw chunks, not lines
             buf = ''
@@ -199,23 +232,31 @@ class Studio:
                 frames = re.findall(r'[Ff]rame (\d+)/(\d+)', buf)
                 if frames and int(frames[-1][1]):
                     st['progress'] = min(0.97, int(frames[-1][0]) / int(frames[-1][1]))
+                    if st['progress'] > 0.03:   # seconds left, from the pace so far (plus ~10 % to encode)
+                        st['eta'] = round((time.time() - t_cap) * (1 - st['progress']) / st['progress'] * 1.1)
                 *lines, buf = buf.split('\n')
                 for line in lines:
                     line = line.strip()
                     if line and not re.search(r'\[Render:trace\]|\[initSession|Browser:WARN|[Ff]rame \d+/\d+', line):
                         self._log(line)
             if p.wait() != 0:
-                raise RuntimeError('el render falló')
+                raise RuntimeError('cancelado' if self.cancelled else 'el render falló')
             st['stage'] = 'controlando cortes y audio'
             r = subprocess.run([sys.executable, os.path.join(SCRIPTS, 'check.py'), self.project, out], text=True,
                                capture_output=True, encoding='utf-8', errors='replace')
             self._log((r.stdout + r.stderr).strip())
+            st['eta'] = None
             st['out'] = os.path.basename(out)
             st['phone'] = os.path.basename(out).replace('.mp4', '-celu.mp4')
             st['progress'], st['stage'] = 1, 'listo'
         except Exception as e:  # noqa: BLE001
             st['error'] = str(e)
             st['stage'] = 'error'
+            if self.cancelled:   # a cut-off render leaves its scratch folders and half a file behind
+                for d in glob.glob(os.path.join(self.project, 'renders', 'work-*')):
+                    shutil.rmtree(d, ignore_errors=True)
+                if 'out' in locals() and os.path.exists(os.path.join(self.project, out)):
+                    os.remove(os.path.join(self.project, out))
         finally:
             st['running'] = False
 
@@ -285,7 +326,11 @@ def make_handler(studio):
 
         def state(self):
             reel = studio.reel()
+            segs = common.read_json(os.path.join(studio.project, 'segments.json'))
             return {'name': studio.name, 'skill': os.path.basename(common.SKILL_DIR), 'reel': reel,
+                    'captions': common.read_json(os.path.join(studio.project, 'captions.json'), []),
+                    'cuts': [s['start'] for s in segs[1:]], 'fps': common.FPS,
+                    'instagram': common.load_config().get('instagram', ''),   # only for the Instagram preview overlay
                     'values': studio.values(reel), 'duration': studio.duration(), 'safe': common.SAFE,
                     'size': [common.W, common.H], 'renders': studio.renders(), 'render': studio.render,
                     'options': common.read_json(os.path.join(STUDIO, 'options.json'))}
@@ -319,11 +364,14 @@ def make_handler(studio):
             if path == '/api/reel':
                 if studio.render['running']:
                     return self.send_json({'ok': False, 'log': 'esperá a que termine el render'}, 409)
-                reel = json.loads(body or b'{}').get('reel')
-                if not isinstance(reel, dict):
+                data = json.loads(body or b'{}')
+                reel, caps = data.get('reel'), data.get('captions')
+                if not isinstance(reel, dict) or (caps is not None and not isinstance(caps, list)):
                     return self.send_json({'ok': False, 'log': 'reel inválido'}, 400)
-                ok, log = studio.save_reel(reel)
+                ok, log = studio.save_reel(reel, caps)
                 return self.send_json({'ok': ok, 'log': log, 'values': studio.values(reel)})
+            if path == '/api/render/cancel':
+                return self.send_json({'ok': studio.cancel_render()})
             if path == '/api/render':
                 started = studio.start_render()
                 return self.send_json({'ok': started, 'render': studio.render})

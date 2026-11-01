@@ -464,7 +464,7 @@ def emph_stickers(c, caps, st):
         left = n % 2 == 0
         ins_media(c, {'src': f'sticker:{st["emphStickers"]}/{names[(n * 7) % len(names)]}', 'mode': 'sticker',
                       'start': g['start'], 'end': max(g['end'], g['start'] + 1.2), 'w': 170,
-                      'x': 70 if left else W - 70 - 170, 'y': max(SAFE['top'], y), 'rot': -12 if left else 10,
+                      'x': 70 if left else W - 70 - 170, 'y': max(SAFE['top'] + 34, y), 'rot': -12 if left else 10,
                       'sfx': None if st['emphSfx'] else 'pop'}, video=False)
 
 

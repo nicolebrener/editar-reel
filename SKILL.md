@@ -119,7 +119,11 @@ Abrí esa URL en el navegador integrado (o pasásela). La persona ve el reel y e
 colores, mayúsculas, sombra o caja, tamaño, altura, animación, zoom y sonidos; cada cambio se guarda en
 `reel.json` -> `captions` (y `titleFont`, `autoZoom`, `sfx`) y se reconstruye solo. Desde ahí también puede
 renderizar en 4K. **Mientras el estudio está abierto, releé `reel.json` antes de tocarlo**: la persona lo cambia
-desde la página y no pises lo que eligió. Las opciones del estudio están en `assets/studio/options.json`.
+desde la página y no pises lo que eligió.
+El estudio tiene solapas: **Estilo** (looks y controles), **Textos** (corregir palabras y marcar o sacar destacados:
+escribe `captions.json`, así que releelo también), **Avisos** (lo que se sale de la zona segura, revisado solo después
+de cada cambio) y **Render** (con tiempo estimado, cancelar y ver el resultado). La línea de tiempo marca destacados,
+cortes e inserts; tiene loop de la frase, cuadro a cuadro, vista con la interfaz de Instagram y modo foco. Las opciones del estudio están en `assets/studio/options.json`.
 
 ### 7. Render en 4K y control
 ```bash

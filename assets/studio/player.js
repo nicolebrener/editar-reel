@@ -28,14 +28,14 @@
     return [s, s + d];
   };
 
-  function apply(seeking) {
+  function apply(seeking, still) {
     const tl = window.__timelines && window.__timelines.main;
     if (tl) tl.seek(t, false);
     for (const e of timed) {
       const [s, end] = span(e);
       const on = t >= s && t < end;
       e.style.visibility = on ? '' : 'hidden';
-      if (e.tagName !== 'VIDEO' && e.tagName !== 'AUDIO') continue;
+      if (still || (e.tagName !== 'VIDEO' && e.tagName !== 'AUDIO')) continue;
       const local = t - s + (+e.dataset.mediaStart || 0);
       if (on && playing) {
         if (e.paused) {
@@ -84,6 +84,11 @@
       t0 = t;
       wall0 = performance.now();
       apply(true);
+    },
+    // the layout at time x without moving any video (for measuring); seek() afterwards puts everything back
+    pose(x) {
+      t = Math.max(0, Math.min(DUR - 0.02, x));
+      apply(false, true);
     },
     setMuted(m) {
       muted = m;
