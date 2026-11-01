@@ -41,7 +41,7 @@ DEFAULT_CONFIG = {
     'projectsDir': '~/reel-edits',
     'colors': {
         'caption': '#FFD60A',                              # amarillo base de los subtítulos
-        'accents': ['#FF3EA5', '#00E0FF', '#7CFF4F', '#FF7A00'],  # rosa, celeste, lima, naranja
+        'accents': ['#FF3EA5', '#7CFF4F', '#FF7A00'],  # rosa, lima, naranja (nunca turquesa: se ve hecho con IA)
     },
     'hdrExposure': 0.62,
     'whisperModel': 'small',

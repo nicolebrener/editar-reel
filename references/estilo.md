@@ -15,7 +15,8 @@ Montserrat Black, Poppins ExtraBold, Space Grotesk Bold, Anton, Bebas Neue y DM 
 
 ## Colores (`config.json` -> `colors`)
 - `caption` `#FFD60A`: amarillo, el color base de todos los subtítulos.
-- `accents`: rosa `#FF3EA5`, celeste `#00E0FF`, lima `#7CFF4F`, naranja `#FF7A00`. Los destacados y los títulos
+- `accents`: rosa `#FF3EA5`, lima `#7CFF4F`, naranja `#FF7A00`. **Nunca turquesa / celeste neón** (`#00E0FF` y
+  parecidos): no se lee sobre video y se ve hecho con IA. Los destacados y los títulos
   van rotando por esta lista (`"color": 0..3` en `reel.json`, o un `"#hex"` directo).
 - **Sin contorno.** Todo el texto lleva solo una sombra suave. Si algo no se lee, primero movelo a una zona más
   oscura o lisa del cuadro; después, como mucho, más sombra.
