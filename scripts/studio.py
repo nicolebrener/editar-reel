@@ -60,10 +60,13 @@ class Studio:
     def values(self, reel):
         """Effective value of every studio control: what reel.json says, else what build.py would use."""
         sys.path.insert(0, SCRIPTS)
+        import importlib
         import build
-        if hasattr(build, 'studio_values'):
-            return build.studio_values(reel, common.load_config())
-        return {}
+        importlib.reload(build)   # build.py may have changed while the studio is open
+        try:
+            return build.studio_values(reel, common.load_config()) if hasattr(build, 'studio_values') else {}
+        except SystemExit:        # an invalid value: build.py says why when it runs; the page keeps working
+            return {}
 
     def renders(self):
         out = []

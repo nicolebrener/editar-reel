@@ -51,7 +51,7 @@ de un solo color (`emphColor`, default `#FFE14D`) y entrada suave sin rebote. Va
 
 | Clave | Valores | pop / clean |
 |---|---|---|
-| `font`, `emphFont` | `cal`, `inter`, `montserrat`, `montserrat-m` (Medium), `poppins`, `grotesk`, `anton`, `bebas`, `dmserif`, `caveat`, `matter` / `matter-bold` (las toma de la skill editar-reel-mira; sin ella, Inter) | `cal` / `inter` |
+| `font`, `emphFont` | `cal`, `inter`, `montserrat`, `montserrat-m` (Medium), `poppins`, `grotesk`, `anton`, `bebas`, `dmserif`, `caveat`, `matter` / `matter-bold` (las toma de la skill editar-reel-mira; sin ella, Inter), `bootzy` (la toma de `~/Library/Fonts/BootzyTM.ttf`: tiene licencia propia y no va en el repo; sin ella, Inter) | `cal` / `inter` |
 | `color` | `"#hex"` de los subtítulos (`null` = `config.json` `caption`) | amarillo / `#FFFFFF` |
 | `emphColor` | `"#hex"` para todos los destacados, `null` = rotan los `accents` | `null` / `#FFE14D` |
 | `case`, `emphCase` | `asis` (como se dijo), `auto` (minúscula al empezar la frase), `upper`, `lower` | `asis`, `upper` / `auto`, `upper` |

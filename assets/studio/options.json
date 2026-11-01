@@ -481,6 +481,13 @@
       "src": "assets/fonts/Caveat-Bold.ttf"
     },
     {
+      "v": "bootzy",
+      "label": "Bootzy",
+      "family": "Bootzy",
+      "weight": 400,
+      "src": "assets/local-fonts/BootzyTM.ttf"
+    },
+    {
       "v": "matter",
       "label": "Matter (MIRA)",
       "family": "Matter",

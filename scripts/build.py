@@ -154,6 +154,10 @@ FONTS = {
     # one (MATTER_DIR). Without it the captions fall back to Inter
     'matter':      {'family': "'Matter'", 'weight': 600, 'ratio': 0.56, 'ls': '-0.01em'},
     'matter-bold': {'family': "'Matter'", 'weight': 700, 'ratio': 0.57, 'ls': '-0.02em'},
+    # fonts installed on this computer whose licence does not let them travel in the repo: build.py copies them
+    # into the project (assets/local-fonts) when they are there; without them the captions fall back to Inter
+    'bootzy':      {'family': "'Bootzy'", 'weight': 400, 'ratio': 0.41, 'ls': '0px',
+                    'local': '~/Library/Fonts/BootzyTM.ttf'},
 }
 MATTER_DIR = os.path.join(os.path.dirname(common.SKILL_DIR), 'editar-reel-mira', 'assets', 'brand')
 UPPER = 0.74 / 0.60
@@ -185,6 +189,10 @@ def caption_style(opts, cfg):
             common.die(f'captions.{k}: no existe "{st[k]}" (hay: {", ".join(FONTS)})')
         if st[k].startswith('matter') and not os.path.exists(os.path.join(MATTER_DIR, 'Matter-Bold.otf')):
             common.say(f'captions.{k}: Matter no está (va en la skill editar-reel-mira); uso Inter')
+            st[k] = 'inter'
+        local = FONTS[st[k]].get('local')
+        if local and not os.path.exists(common.expand(local)):
+            common.say(f'captions.{k}: falta {local} en esta compu; uso Inter')
             st[k] = 'inter'
     return st
 
@@ -227,6 +235,11 @@ def caption_css(st):
     if os.path.exists(os.path.join(MATTER_DIR, 'Matter-Bold.otf')):
         css += ''.join(f"@font-face{{font-family:'Matter';font-weight:{wt};src:url('assets/brand/Matter-{n}.otf') "
                        f"format('opentype')}}\n" for wt, n in ((600, 'SemiBold'), (700, 'Bold')))
+    for f_ in FONTS.values():
+        local = f_.get('local') and common.expand(f_['local'])
+        if local and os.path.exists(local):
+            css += (f"@font-face{{font-family:{f_['family']};font-weight:{f_['weight']};"
+                    f"src:url('assets/local-fonts/{os.path.basename(local)}')}}\n")
     css += (f".w{{display:inline-block;font-family:{f['family']},sans-serif;font-weight:{f['weight']};line-height:1.02;"
            f"color:{st['color']};letter-spacing:{f['ls']};text-shadow:{SHADOWS.get(st['shadow'], SHADOWS['soft'])}}}\n"
            f".w.e{{font-family:{ef['family']},sans-serif;font-weight:{ef['weight']};"
@@ -791,6 +804,11 @@ def main():
         os.makedirs(os.path.join(project, 'assets', 'brand'), exist_ok=True)
         for f in glob.glob(os.path.join(MATTER_DIR, 'Matter-*.otf')):
             shutil.copy(f, os.path.join(project, 'assets', 'brand'))
+    for f in FONTS.values():
+        local = f.get('local') and common.expand(f['local'])
+        if local and os.path.exists(local):
+            os.makedirs(os.path.join(project, 'assets', 'local-fonts'), exist_ok=True)
+            shutil.copy(local, os.path.join(project, 'assets', 'local-fonts'))
     for sub in ('fonts', 'sfx', 'vendor'):
         src = os.path.join(common.SKILL_DIR, 'assets', sub)
         dst = os.path.join(project, 'assets', sub)
