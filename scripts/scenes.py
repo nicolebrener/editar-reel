@@ -42,30 +42,60 @@ def chat(i, it, acc):
     return markup, js, times
 
 
+CAL_EVENTS = ['Reunión', 'Llamada', 'Equipo', 'Cliente', 'Foco', 'Almuerzo', 'Daily', 'Entrega', 'Demo', 'Gym']
+CAL_TINTS = ['#E2577F', '#E07A4F', '#9B7FD8', '#E8B53E', '#7FA86A']   # frambuesa, terracota, lavanda, mostaza, salvia
+
+
 def calendar(i, it, acc):
+    """A packed week: busy slots are coloured events with a name, free slots look empty until a search frame hops
+    across the grid and lands on each one, which then lights up and ticks."""
     days = it.get('days', ['Lun', 'Mar', 'Mié', 'Jue', 'Vie'])
     slots = it.get('slots', 4)
     busy = {tuple(b) for b in it.get('busy', [])}
     free = [tuple(f) for f in it.get('free', [])]
+    labels = it.get('labels') or CAL_EVENTS
     times = _times(it, len(free), gap=0.4, first=0.7)
-    cols = ''
+    cols, order, n = '', [], 0
     for d, day in enumerate(days):
         cells = ''
         for s in range(slots):
-            cls = 'busy' if (d, s) in busy else ('free f%d' % free.index((d, s)) if (d, s) in free else 'empty')
-            mark = ('<svg viewBox="0 0 24 24"><polyline pathLength="1" points="5,12 10,17 19,7"/></svg>'
-                    if cls.startswith('free') else '')
-            cells += f'<div class="cell {cls}">{mark}</div>'
+            order.append((d, s))
+            cid = f'c{d}-{s}'
+            if (d, s) in busy:
+                tint = CAL_TINTS[(d * 2 + s) % len(CAL_TINTS)]
+                cells += (f'<div class="cell busy {cid}" style="--tint:{tint}"><span>{esc(labels[n % len(labels)])}'
+                          f'</span></div>')
+                n += 1
+            elif (d, s) in free:
+                cells += (f'<div class="cell empty free f{free.index((d, s))} {cid}"><svg viewBox="0 0 24 24">'
+                          f'<polyline pathLength="1" points="5,12 10,17 19,7"/></svg></div>')
+            else:
+                cells += f'<div class="cell empty {cid}"></div>'
         cols += f'<div class="cal-col"><div class="cal-day">{esc(day)}</div>{cells}</div>'
     markup = (f'<div class="scn-title">{esc(it.get("title", "Tu semana"))}</div>'
               f'<div class="cal-grid">{cols}</div>')
     js = [f'tl.fromTo("#{i} .cal-col",{{y:30,opacity:0}},{{y:0,opacity:1,duration:0.3,stagger:0.06,'
-          f'ease:"power3.out"}},{it["start"] + 0.1:.3f});']
+          f'ease:"power3.out"}},{it["start"] + 0.1:.3f});',
+          f'tl.fromTo("#{i} .cell.busy",{{scale:0.6,opacity:0}},{{scale:1,opacity:1,duration:0.22,stagger:0.025,'
+          f'ease:"back.out(2)"}},{it["start"] + 0.2:.3f});']
+    # the search frame: hops over a few busy cells before each free slot, as if checking them one by one
+    prev = it['start'] + 0.55
     for k, t in enumerate(times):
-        js.append(f'tl.fromTo("#{i} .f{k}",{{backgroundColor:"rgba(255,255,255,0)",scale:1}},'
-                  f'{{backgroundColor:"{acc}",scale:1.06,duration:0.25,ease:"back.out(2)"}},{t:.3f});')
+        target = free[k]
+        cands = [c for c in order if c in busy]
+        hops = sorted(cands, key=lambda c: (abs(c[0] - target[0]) + abs(c[1] - target[1]), c))[:3][::-1]
+        step = min(0.14, max(0.08, (t - prev) / (len(hops) + 1)))
+        for h, c in enumerate(hops):
+            ht = t - step * (len(hops) - h)
+            js.append(f'tl.fromTo("#{i} .c{c[0]}-{c[1]}",{{boxShadow:"0 0 0 0px {acc}"}},'
+                      f'{{boxShadow:"0 0 0 7px {acc}",duration:0.05,yoyo:true,repeat:1,repeatDelay:{max(0.0, step - 0.1):.3f}}},'
+                      f'{ht:.3f});')
+        js.append(f'tl.fromTo("#{i} .f{k}",{{backgroundColor:"rgba(255,255,255,0)",borderColor:"rgba(255,255,255,.12)",'
+                  f'scale:1}},{{backgroundColor:"{acc}",borderColor:"{acc}",scale:1.08,duration:0.25,'
+                  f'ease:"back.out(2)"}},{t:.3f});')
         js.append(f'tl.fromTo("#{i} .f{k} polyline",{{strokeDashoffset:1}},{{strokeDashoffset:0,duration:0.3}},'
                   f'{t + 0.1:.3f});')
+        prev = t + 0.3
     return markup, js, times
 
 
@@ -146,9 +176,10 @@ CSS = """
 .cal-col{flex:1;display:flex;flex-direction:column;gap:16px}
 .cal-day{text-align:center;font-weight:800;font-size:36px;opacity:.7;margin-bottom:4px}
 .cell{height:118px;border-radius:24px;display:flex;align-items:center;justify-content:center}
-.cell.busy{background:#2b2924}
+.cell.busy{background:color-mix(in srgb,var(--tint) 30%,#1d1b18);border-left:8px solid var(--tint);
+  justify-content:flex-start;align-items:flex-start;padding:14px 12px}
+.cell.busy span{font-size:24px;font-weight:800;color:#fff;opacity:.92;line-height:1.1}
 .cell.empty{border:3px dashed rgba(255,255,255,.12)}
-.cell.free{border:3px solid var(--acc)}
 .cell svg,.box svg{width:56%;fill:none;stroke:#141414;stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round}
 .cell polyline,.box polyline{stroke-dasharray:1;stroke-dashoffset:1}
 .chk-list{display:flex;flex-direction:column;gap:26px}

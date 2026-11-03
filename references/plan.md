@@ -51,7 +51,7 @@ de un solo color (`emphColor`, default `#FFE14D`) y entrada suave sin rebote. Va
 
 | Clave | Valores | pop / clean |
 |---|---|---|
-| `font`, `emphFont` | `cal`, `inter`, `montserrat`, `montserrat-m` (Medium), `poppins`, `grotesk`, `anton`, `bebas`, `dmserif`, `caveat`, `matter` / `matter-bold` (las toma de la skill editar-reel-mira; sin ella, Inter), `bootzy` (la toma de `~/Library/Fonts/BootzyTM.ttf`: tiene licencia propia y no va en el repo; sin ella, Inter) | `cal` / `inter` |
+| `font`, `emphFont` | `cal`, `inter`, `montserrat`, `montserrat-m` (Medium), `poppins`, `grotesk`, `anton`, `bebas`, `dmserif`, `caveat`, `bootzy` (la toma de `~/Library/Fonts/BootzyTM.ttf`: tiene licencia propia y no va en el repo; sin ella, Inter) | `cal` / `inter` |
 | `color` | `"#hex"` de los subtítulos (`null` = `config.json` `caption`) | amarillo / `#FFFFFF` |
 | `emphColor` | `"#hex"` para todos los destacados, `null` = rotan los `accents` | `null` / `#FFE14D` |
 | `case`, `emphCase` | `asis` (como se dijo), `auto` (minúscula al empezar la frase), `upper`, `lower` | `asis`, `upper` / `auto`, `upper` |
@@ -62,13 +62,13 @@ de un solo color (`emphColor`, default `#FFE14D`) y entrada suave sin rebote. Va
 | `size`, `emphSize`, `y` | px | 92, 150, 1240 / 80, 130, 1240 |
 | `curve` | px que bajan las puntas del arco: 0 = recto; 150-250 = el subtítulo en arco sobre la cabeza, como un halo (con `y` ~430) | 0 |
 | `tilt` | hasta cuántos grados se inclina cada subtítulo (uno distinto por subtítulo) | 0 |
-| `emphBox` | `"pill"`: el destacado sobre una píldora de `emphColor` con letra negra o blanca (el look MIRA). No va con `curve` | `null` |
+| `emphBox` | `"pill"`: el destacado sobre una píldora de `emphColor` con letra negra o blanca. No va con `curve` | `null` |
 | `sparkles` | `true`: brillitos ✦ (uno blanco chico y uno del color del destacado) a cada lado de los destacados | `false` |
 | `emphStickers` | nombre de un pack de `~/reel-stickers` (`"girly"`): en cada destacado aparece con pop un sticker del pack (estrellas, brillos, corazones, bolas de disco), alternando izquierda y derecha | `null` |
 
 Los estilos base del estudio (`assets/studio/options.json` -> `presets`) son combinaciones de estas claves: Pop,
 Clean, Bold, Impacto, Editorial, Caja, Arco (minúscula amarilla pálida en arco y remate en serif itálica, de una
-referencia de la persona), Arco blanco y MIRA.
+referencia de la persona), Arco blanco, Cine, Girly y Girly serif.
 
 ### Color de la imagen (`grade`, `gradeAmount`)
 `"grade"`: `cine` (verde salvia en fondos y medios, piel dorada, negros suaves, grano y viñeta), `calido`, `film`

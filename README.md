@@ -62,13 +62,13 @@ comando pegar si falta algo.
 Pegale esto a Claude Code:
 
 ```
-Instalá la skill de https://github.com/<tu-usuario>/editar-reel en ~/.claude/skills/editar-reel
+Instalá la skill de https://github.com/nicolebrener/editar-reel en ~/.claude/skills/editar-reel
 ```
 
 O en la terminal:
 
 ```bash
-git clone https://github.com/<tu-usuario>/editar-reel ~/.claude/skills/editar-reel
+git clone https://github.com/nicolebrener/editar-reel ~/.claude/skills/editar-reel
 ```
 
 Después abrí Claude Code y escribí `/editar-reel`. La primera vez te pregunta tu nombre, tu usuario de
@@ -95,7 +95,7 @@ Cada vuelta es un nuevo render (`v2`, `v3`...). Nunca se pisan las versiones ant
 originales no se tocan.
 
 Si preferís elegir el look vos misma, pedí **"abrime el estudio"**: se abre una página con el reel y los
-controles al lado (9 estilos base, entre ellos uno en arco sobre la cabeza y el de MIRA; 11 tipografías, colores, mayúsculas, sombra o caja, tamaño, altura, animación,
+controles al lado (11 estilos base, entre ellos uno en arco sobre la cabeza, uno de cine y dos girly; 11 tipografías, colores, mayúsculas, sombra o caja, tamaño, altura, animación,
 zoom y sonidos). Lo que elegís queda en `reel.json`, así que después podés seguir pidiéndole cambios a Claude.
 
 ---

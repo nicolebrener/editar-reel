@@ -105,25 +105,6 @@
       }
     },
     {
-      "label": "MIRA",
-      "hint": "Matter blanco, destacado en píldora Sky Blue, movimiento calmo",
-      "captions": {
-        "style": "clean",
-        "font": "matter",
-        "emphFont": "matter-bold",
-        "color": "#FFFFFF",
-        "emphColor": "#BBCDF3",
-        "case": "asis",
-        "emphCase": "asis",
-        "emphItalic": false,
-        "shadow": "soft",
-        "anim": "soft",
-        "size": 80,
-        "emphSize": 120,
-        "emphBox": "pill"
-      }
-    },
-    {
       "label": "Cine",
       "hint": "Una palabra crema con sombra a media altura y color de cine (verde salvia, piel dorada, grano)",
       "captions": {
@@ -630,13 +611,6 @@
       "family": "Bootzy",
       "weight": 400,
       "src": "assets/local-fonts/BootzyTM.ttf"
-    },
-    {
-      "v": "matter",
-      "label": "Matter (MIRA)",
-      "family": "Matter",
-      "weight": 600,
-      "src": "assets/brand/Matter-SemiBold.otf"
     }
   ]
 }

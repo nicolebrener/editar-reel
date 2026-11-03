@@ -144,6 +144,14 @@ class Studio:
                 os.replace(tmp, out)
         return out
 
+    def options(self):
+        """options.json without the fonts that are not on this computer (Bootzy has its own licence and is not in the
+        repo: build.py copies it into the project only when it is installed)."""
+        opts = common.read_json(os.path.join(STUDIO, 'options.json'))
+        opts['fonts'] = [f for f in opts['fonts'] if os.path.exists(os.path.join(self.project, f['src']))
+                         or os.path.exists(os.path.join(common.SKILL_DIR, f['src']))]
+        return opts
+
     def page(self):
         """index.html for the browser: the studio player, and big videos swapped for their proxies."""
         with open(os.path.join(self.project, 'index.html'), encoding='utf-8') as f:
@@ -333,7 +341,7 @@ def make_handler(studio):
                     'instagram': common.load_config().get('instagram', ''),   # only for the Instagram preview overlay
                     'values': studio.values(reel), 'duration': studio.duration(), 'safe': common.SAFE,
                     'size': [common.W, common.H], 'renders': studio.renders(), 'render': studio.render,
-                    'options': common.read_json(os.path.join(STUDIO, 'options.json'))}
+                    'options': studio.options()}
 
         def do_GET(self):
             url = urllib.parse.urlparse(self.path)
