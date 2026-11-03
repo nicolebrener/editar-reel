@@ -85,7 +85,7 @@ Todos llevan `type`, `start`, `end`. Opcional en todos: `sfx` (nombre del sonido
 
 | type | Campos | Notas |
 |---|---|---|
-| `note` | `text`, `x`, `y`, `w` (640), `rot`, `paper` (`lined`/`pink`), `font` (`caveat`/`dmserif`), `size`, `stickers` (pack para las esquinas, `null` = sin), `color` | tarjeta de cuaderno con renglones, margen, agujeros, clip y cinta; el texto se escribe solo. Va donde hay lugar (arriba de la cabeza o al costado), nunca sobre la cara: mientras está, bajá los subtítulos de ese momento al pecho (`"y": 1240` en `captions.json`) |
+| `note` | `text` (o `lines` + `times`: cada línea se escribe cuando se dice), `src` (un sticker de hoja propio, PNG sin fondo, con `area` [izq, arriba, der, abajo] en fracciones = donde van los renglones), `x`, `y`, `w` (640), `rot`, `paper` (`lined`/`pink`), `font` (`caveat`/`dmserif`), `size`, `stickers` (pack para las esquinas, `null` = sin), `color` | tarjeta de cuaderno con renglones, margen, agujeros, clip y cinta; el texto se escribe solo. Va donde hay lugar (arriba de la cabeza o al costado), nunca sobre la cara: mientras está, bajá los subtítulos de ese momento al pecho (`"y": 1240` en `captions.json`) |
 | `title` | `text`, `behind`, `color`, `y`, `size`, `font` (`cal`/`hand`), `clipTop` | `behind: true` necesita `cutout.py`. `clipTop` = desde qué altura tapa la cabeza (default: deja ~80 % de la letra) |
 | `image` | `src`, `mode` (`card`/`sticker`/`full`), `x`, `y`, `w`, `maxH`, `rot` | `src` relativo al proyecto, en `assets/`, o `"sticker:<pack>/<nombre>"` de `~/reel-stickers` (`scripts/stickers.py list`) |
 | `broll` | igual que `image` + `mediaStart` | video sin sonido; `full` cubre todo el cuadro |

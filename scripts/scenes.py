@@ -8,6 +8,8 @@ captions stay readable on top of it. Content sits between y 260 and y 1200: the 
     checklist  a list that ticks itself off                  items: ["..."], times, tags (optional, one per item)
     stat       a big number that counts up                   value, prefix, suffix, label
     text       a short statement, line by line               lines: ["..."], times; *word* goes in the accent colour
+    upload     an AI chat: files drop in, a prompt is typed       files: [{"src", "dur"}], prompt, reply, title,
+               and sent, the assistant answers                    times: {"files": [...], "type", "send", "reply"}
 
 All times are seconds on the reel timeline; when they are missing, items follow each other every 0.45 s.
 """
@@ -152,7 +154,66 @@ def text(i, it, acc):
     return markup, js, times
 
 
-KINDS = {'chat': chat, 'calendar': calendar, 'checklist': checklist, 'stat': stat, 'text': text}
+def burst(cls, color):
+    """A starburst mark (rays of uneven length), the shape of the Claude logo."""
+    import math
+    lens = [46, 38, 47, 34, 44, 40, 47, 36, 45, 39, 46, 35]
+    rays = ''.join(f'<line x1="50" y1="50" x2="{50 + L * math.cos(math.radians(k * 30 - 90)):.1f}" '
+                   f'y2="{50 + L * math.sin(math.radians(k * 30 - 90)):.1f}"/>' for k, L in enumerate(lens))
+    return (f'<svg class="{cls}" viewBox="0 0 100 100"><g stroke="{color}" stroke-width="9" stroke-linecap="round">'
+            f'{rays}</g></svg>')
+
+
+def upload(i, it, acc):
+    """An AI chat app (warm dark, like the assistant apps): thumbnails of the clips drop in one by one, the prompt is
+    typed in the input box, it is sent as a bubble with the files above it, and the assistant answers."""
+    files = it.get('files', [])
+    tm = it.get('times') or {}
+    ft = list(tm.get('files') or [])
+    while len(ft) < len(files):
+        ft.append((ft[-1] + 0.12) if ft else it['start'] + 0.15)
+    prompt = it.get('prompt', '')
+    t_type = tm.get('type', (ft[-1] if ft else it['start']) + 0.3)
+    t_send = tm.get('send', t_type + 0.05 * len(prompt) + 0.15)
+    t_reply = tm.get('reply', t_send + 0.5)
+    thumbs = ''.join(f'<div class="up-f f{k}"><img src="{esc(f["src"])}"><svg viewBox="0 0 24 24"><path d="M9 7v10l8-5z"/>'
+                     f'</svg><em>{esc(f.get("dur", ""))}</em></div>' for k, f in enumerate(files))
+    title = it.get('title', 'Claude')
+    letters = ''.join(f'<i class="c{n}">{esc(ch) if ch != " " else "&nbsp;"}</i>' for n, ch in enumerate(prompt))
+    mark = it.get('logo') == 'claude'
+    hd = (burst('up-logo', '#D97757') if mark else '') + f'<span>{esc(title)}</span>'
+    dot = burst('up-dot', '#D97757') if mark else '<span class="up-dot"></span>'
+    markup = (f'<div class="up-hd">{hd}</div>'
+              f'<div class="up-turn"><div class="up-files">{thumbs}</div>'
+              f'<div class="up-msg">{esc(prompt)}</div></div>'
+              f'<div class="up-reply">{dot}<span>{esc(it.get("reply", ""))}</span></div>'
+              f'<div class="up-box"><div class="up-tray">{thumbs}</div><div class="up-line"><span class="up-typed">{letters}'
+              f'</span><span class="up-ph">Escribí un mensaje</span><b class="up-send"><svg viewBox="0 0 24 24">'
+              f'<path d="M12 19V5M6 11l6-6 6 6"/></svg></b></div></div>')
+    js = []
+    for k, t in enumerate(ft):   # the files land in the input box first
+        js.append(f'tl.fromTo("#{i} .up-tray .f{k}",{{y:60,opacity:0,scale:0.7}},{{y:0,opacity:1,scale:1,'
+                  f'duration:0.28,ease:"back.out(2)"}},{t:.3f});')
+    # the prompt is typed letter by letter: every letter is already there, hidden, and shows up at its time (a
+    # fromTo per letter, so seeking any frame shows the same text)
+    step = max(0.03, min(0.07, (t_send - 0.12 - t_type) / max(1, len(prompt))))
+    js.append(f'tl.fromTo("#{i} .up-ph",{{opacity:0.4}},{{opacity:0,duration:0.05}},{t_type:.3f});'
+              f'tl.set("#{i} .up-ph",{{opacity:0}},{t_type + 0.05:.3f});')
+    for n in range(len(prompt)):
+        js.append(f'tl.fromTo("#{i} .up-typed .c{n}",{{opacity:0}},{{opacity:1,duration:0.01}},'
+                  f'{t_type + step * (n + 1):.3f});')
+    js += [f'tl.to("#{i} .up-send",{{scale:0.8,duration:0.08,yoyo:true,repeat:1}},{t_send - 0.1:.3f});',
+           f'tl.to("#{i} .up-tray,#{i} .up-typed",{{opacity:0,duration:0.05}},{t_send:.3f});',
+           f'tl.to("#{i} .up-ph",{{opacity:0.4,duration:0.05}},{t_send:.3f});',
+           f'tl.fromTo("#{i} .up-turn",{{y:120,opacity:0}},{{y:0,opacity:1,duration:0.35,ease:"power3.out"}},'
+           f'{t_send:.3f});',
+           f'tl.fromTo("#{i} .up-reply",{{y:30,opacity:0}},{{y:0,opacity:1,duration:0.3,ease:"power2.out"}},'
+           f'{t_reply:.3f});',
+           f'tl.fromTo("#{i} .up-dot",{{rotation:0}},{{rotation:180,duration:0.6,ease:"power2.out"}},{t_reply:.3f});']
+    return markup, js, ft[:1] + [t_send, t_reply]
+
+
+KINDS = {'upload': upload, 'chat': chat, 'calendar': calendar, 'checklist': checklist, 'stat': stat, 'text': text}
 
 CSS = """
 .scn{position:absolute;inset:0;overflow:hidden;color:#fff;font-family:'Inter',sans-serif}
@@ -193,5 +254,32 @@ CSS = """
 .stat-n{font-weight:800;font-size:260px;letter-spacing:-8px;line-height:1;color:var(--acc)}
 .stat-l{font-size:56px;font-weight:700;opacity:.85}
 .txt{display:flex;flex-direction:column;gap:14px}
+.scn-upload .scn-bg{background:#262624}.scn-upload .scn-bg:after{display:none}
+.scn-upload .scn-in{justify-content:flex-start;gap:34px;bottom:620px}
+.up-hd{display:flex;align-items:center;gap:20px;font-family:'DM Serif Display',serif;font-size:64px;opacity:.9;padding-bottom:22px;
+  border-bottom:2px solid rgba(255,255,255,.08)}
+.up-turn{opacity:0;display:flex;flex-direction:column;align-items:flex-end;gap:18px}
+.up-files,.up-tray{display:flex;gap:14px;justify-content:flex-end}
+.up-f{position:relative;width:150px;height:240px;border-radius:20px;overflow:hidden;background:#3a3934;
+  border:2px solid rgba(255,255,255,.14)}
+.up-f img{width:100%;height:100%;object-fit:cover}
+.up-f svg{position:absolute;left:50%;top:44%;width:54px;margin-left:-27px;fill:#fff;opacity:.92;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+.up-f em{position:absolute;right:10px;bottom:8px;font-style:normal;font-size:22px;font-weight:700;
+  text-shadow:0 1px 4px rgba(0,0,0,.7)}
+.up-msg{background:#141413;padding:24px 34px;border-radius:30px;font-size:44px;font-weight:600}
+.up-reply{opacity:0;display:flex;align-items:center;gap:20px;font-size:44px;font-weight:600}
+.up-logo{width:70px;height:70px}
+.up-dot{width:54px;height:54px;flex:none}span.up-dot{background:var(--acc);
+  clip-path:polygon(50% 0,61% 39%,100% 50%,61% 61%,50% 100%,39% 61%,0 50%,39% 39%)}
+.up-box{position:absolute;left:0;right:0;bottom:0;background:#30302e;border:2px solid rgba(255,255,255,.1);
+  border-radius:36px;padding:22px 24px 22px 32px;display:flex;flex-direction:column;gap:18px}
+.up-box .up-tray{justify-content:flex-start}.up-box .up-f{width:118px;height:190px;border-radius:16px}
+.up-box .up-f svg{width:38px;margin-left:-19px}.up-box .up-f em{font-size:17px}
+.up-line{position:relative;display:flex;align-items:center;min-height:76px;font-size:42px;font-weight:600}
+.up-ph{position:absolute;left:0;opacity:.4}.up-typed i{font-style:normal;opacity:0}
+.up-send{margin-left:auto;width:76px;height:76px;border-radius:22px;background:var(--acc);display:flex;
+  align-items:center;justify-content:center}
+.up-send svg{width:40px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
 .tl{font-weight:800;font-size:104px;letter-spacing:-2.5px;line-height:1.02}
 """

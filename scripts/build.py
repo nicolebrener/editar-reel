@@ -564,6 +564,43 @@ def ins_anim(c, it):
     c.sfx(it.get('sfx', 'pop'), t0, 0.5)
 
 
+def ins_prompt(c, it):
+    """An AI chat input box floating over the video: what is said gets typed in it letter by letter and sent (the
+    box sinks away), so the viewer sees the request being written while the person is still on screen.
+    {"type": "prompt", "text", "start", "end", "type": s (typing starts), "send": s, "x", "y", "w",
+     "logo": "claude" (the starburst on the left), "accent"}"""
+    i = c.uid('prm')
+    text = it['text']
+    w = it.get('w', W - 2 * 90)
+    x, y = it.get('x', (W - w) // 2), it.get('y', 1150)
+    acc = color(c.cfg, it.get('accent'), '#E07A4F')
+    t_type = it.get('typeAt', it['start'] + 0.3)
+    t_send = it.get('send', it['end'] - 0.3)
+    letters = ''.join(f'<i class="c{n}">{esc(ch) if ch != " " else " "}</i>' for n, ch in enumerate(text))
+    logo = scenes.burst('prm-logo', '#D97757') if it.get('logo') == 'claude' else ''
+    c.add(6, f'<div id="{i}" class="clip prm" data-start="{it["start"]:.3f}" '
+             f'data-duration="{it["end"] - it["start"]:.3f}" data-track-index="6" style="left:{x}px;top:{y}px;'
+             f'width:{w}px;--acc:{acc}"><div class="prm-in">{logo}<div class="prm-tx"><span class="prm-ph">'
+             f'Escribí un mensaje</span><span class="prm-typed">{letters}</span></div><b class="prm-send">'
+             f'<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></b></div></div>')
+    c.anim(f'tl.fromTo("#{i} .prm-in",{{y:60,opacity:0,scale:0.92}},{{y:0,opacity:1,scale:1,duration:0.35,'
+           f'ease:"back.out(1.7)"}},{it["start"]:.3f});')
+    step = max(0.02, min(0.07, (t_send - 0.12 - t_type) / max(1, len(text))))
+    c.anim(f'tl.fromTo("#{i} .prm-ph",{{opacity:0.45}},{{opacity:0,duration:0.05}},{t_type:.3f});'
+           f'tl.set("#{i} .prm-ph",{{opacity:0}},{t_type + 0.05:.3f});')
+    for n in range(len(text)):
+        c.anim(f'tl.fromTo("#{i} .prm-typed .c{n}",{{opacity:0}},{{opacity:1,duration:0.01}},'
+               f'{t_type + step * (n + 1):.3f});')
+    # sent: the button presses, the text leaves upwards and the box sinks away
+    c.anim(f'tl.to("#{i} .prm-send",{{scale:0.8,duration:0.08,yoyo:true,repeat:1}},{t_send - 0.1:.3f});'
+           f'tl.to("#{i} .prm-typed",{{y:-50,opacity:0,duration:0.2,ease:"power2.in"}},{t_send:.3f});'
+           f'tl.set("#{i} .prm-typed",{{opacity:0}},{t_send + 0.2:.3f});'
+           f'tl.to("#{i} .prm-in",{{y:90,opacity:0,duration:0.3,ease:"power2.in"}},{t_send + 0.12:.3f});'
+           f'tl.set("#{i} .prm-in",{{opacity:0}},{it["end"]:.3f});')
+    c.sfx(it.get('sfx', 'pop'), it['start'], 0.4)
+    c.sfx('whoosh', t_send, 0.5)
+
+
 def ins_scene(c, it):
     """A full-screen animated scene that explains what is being said (scenes.py): a chat, a calendar, a list..."""
     kind = it.get('kind')
@@ -573,7 +610,7 @@ def ins_scene(c, it):
     dur = it['end'] - it['start']
     acc = color(c.cfg, it.get('accent'), c.cfg.get('_emph') or c.cfg['colors']['caption'])
     markup, js, times = scenes.KINDS[kind](i, it, acc)
-    c.add(5, f'<div id="{i}" class="clip scn" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
+    c.add(5, f'<div id="{i}" class="clip scn scn-{kind}" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
              f'data-track-index="5" style="--acc:{acc}"><div class="scn-bg"></div>'
              f'<div class="scn-in">{markup}</div></div>')
     c.anim(f'tl.fromTo("#{i} .scn-in",{{scale:1.04,opacity:0}},{{scale:1,opacity:1,duration:0.25,'
@@ -762,9 +799,11 @@ def ins_note(c, it):
     x, y = it.get('x', (W - w) // 2), it.get('y', SAFE['top'] + 40)
     rot = it.get('rot', -3)
     font = FONTS.get(it.get('font', 'caveat'), FONTS['caveat'])
-    words = it['text'].split()
+    lines = it.get('lines') or [it['text']]
+    words = ' '.join(lines).split()
     fs = it.get('size', 56 if it.get('font', 'caveat') == 'caveat' else 44)
-    text = ''.join(f'<span class="nw">{esc(t)} </span>' for t in words)
+    text = ''.join('<div>' + ''.join(f'<span class="nw l{n}">{esc(t)} </span>' for t in ln.split()) + '</div>'
+                   for n, ln in enumerate(lines))
     deco = ''
     pack = it.get('stickers', 'girly')
     names = sorted(os.path.splitext(os.path.basename(f))[0]
@@ -772,25 +811,41 @@ def ins_note(c, it):
                    if os.path.basename(f).startswith(DECOR)) if pack else []
     spots = [(-60, -70, 170, -14), (w - 120, None, 150, 12), (-40, None, 120, 8)]
     for k, (dx, dy, sw, r) in enumerate(spots[:3] if names else []):
-        src = sticker_src(c, f'sticker:{pack}/{names[(k * 5 + len(it["text"])) % len(names)]}')
+        src = sticker_src(c, f'sticker:{pack}/{names[(k * 5 + len(" ".join(lines))) % len(names)]}')
         top = f'top:{dy}px' if dy is not None else f'bottom:{-40 - 20 * k}px'
         deco += (f'<img class="note-st" src="{esc(src)}" style="left:{dx}px;{top};width:{sw}px;'
                  f'transform:rotate({r}deg)" alt="">')
     paper = 'pink' if it.get('paper') == 'pink' else 'lined'
+    style = (f'font-family:{font["family"]},cursive;font-weight:{font["weight"]};font-size:{fs}px;'
+             f'line-height:{int(fs * 1.12)}px;color:{it.get("color", "#3b2a3a")}')
+    if it.get('src'):
+        # a notebook sticker of the person's own (a PNG with the sheet, stars, clip and tape already drawn): the
+        # text goes over its ruled area, "area": [left, top, right, bottom] as fractions of the image
+        l, t, r, b = it.get('area', [0.24, 0.30, 0.88, 0.82])
+        body = (f'<img class="note-img" src="{esc(sticker_src(c, it["src"]))}" alt="">'
+                f'<div class="note-tx note-on" style="left:{l * 100:.1f}%;top:{t * 100:.1f}%;width:{(r - l) * 100:.1f}%;'
+                f'height:{(b - t) * 100:.1f}%;{style}">{text}</div>')
+        deco = ''
+    else:
+        body = (f'<div class="note-paper" style="--lh:{int(fs * 1.12)}px"><div class="note-tx" style="{style}">'
+                f'{text}</div></div>{CLIP}<div class="note-tape"></div>')
     c.add(6, f'<div id="{i}" class="clip note {paper}" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
              f'data-track-index="6" style="left:{x}px;top:{y}px;width:{w}px"><div class="note-in" '
-             f'style="transform:rotate({rot}deg)"><div class="note-paper" style="--lh:{int(fs * 1.12)}px">'
-             f'<div class="note-tx" style="font-family:{font["family"]},cursive;font-weight:{font["weight"]};'
-             f'font-size:{fs}px;line-height:{int(fs * 1.12)}px;color:{it.get("color", "#3b2a3a")}">{text}</div>'
-             f'</div>{CLIP}'
-             f'<div class="note-tape"></div>{deco}</div></div>')
+             f'style="transform:rotate({rot}deg)">{body}{deco}</div></div>')
     c.anim(f'tl.fromTo("#{i} .note-in",{{y:-70,rotation:{rot - 7},opacity:0}},{{y:0,rotation:{rot},opacity:1,'
            f'duration:0.45,ease:"back.out(1.6)"}},{it["start"]:.3f});')
     c.anim(f'tl.fromTo("#{i} .note-st",{{scale:0,opacity:0}},{{scale:1,opacity:1,duration:0.3,ease:"back.out(2.5)",'
            f'stagger:0.1}},{it["start"] + 0.35:.3f});')
+    if it.get('times'):   # one line per time, each written word by word when it is said
+        for n, (ln, t) in enumerate(zip(lines, it['times'])):
+            k = len(ln.split())
+            c.anim(f'tl.fromTo("#{i} .nw.l{n}",{{opacity:0,y:8}},{{opacity:1,y:0,duration:0.12,'
+                   f'stagger:{min(0.18, 0.5 / k):.3f}}},{t:.3f});')
+            c.sfx('click', t, 0.3)
     span = min(dur * 0.6, 0.18 * len(words))
-    c.anim(f'tl.fromTo("#{i} .nw",{{opacity:0,y:8}},{{opacity:1,y:0,duration:0.12,stagger:{span / max(1, len(words)):.3f}}},'
-           f'{it["start"] + 0.4:.3f});')
+    if not it.get('times'):
+        c.anim(f'tl.fromTo("#{i} .nw",{{opacity:0,y:8}},{{opacity:1,y:0,duration:0.12,'
+               f'stagger:{span / max(1, len(words)):.3f}}},{it["start"] + 0.4:.3f});')
     c.anim(f'tl.to("#{i} .note-in",{{opacity:0,y:30,duration:0.2,ease:"power2.in"}},{it["end"] - 0.2:.3f});'
            f'tl.set("#{i} .note-in",{{opacity:0}},{it["end"]:.3f});')
     c.sfx(it.get('sfx', 'whoosh'), it['start'] - 0.05, 0.6)
@@ -866,7 +921,8 @@ def ins_steps(c, it):
         if k:
             parts.append(f'<div class="arrow a{k}" style="color:{acc}">→</div>')
         hl = ' hl' if k in it.get('highlight', []) else ''
-        parts.append(f'<div class="chip c{k}{hl}" style="--acc:{acc}">{esc(label)}</div>')
+        fs = f';font-size:{it["size"]}px' if it.get('size') else ''   # smaller chips when the labels are long
+        parts.append(f'<div class="chip c{k}{hl}" style="--acc:{acc}{fs}">{esc(label)}</div>')
     title = f'<div class="steps-t" style="color:{acc}">{esc(it["title"])}</div>' if it.get('title') else ''
     c.add(6, f'<div id="{i}" class="clip steps" data-start="{it["start"]:.3f}" data-duration="{dur:.3f}" '
              f'data-track-index="6" style="top:{it.get("y", 300)}px">{title}<div class="steps-row">{"".join(parts)}'
@@ -960,6 +1016,17 @@ html,body{margin:0;background:#000;overflow:hidden}
 .ins.sticker img{object-fit:contain}
 .note{position:absolute}
 .note-in{position:relative;filter:drop-shadow(0 18px 30px rgba(60,30,50,.28))}
+.prm{position:absolute}
+.prm-in{display:flex;align-items:center;gap:22px;background:#30302e;border:2px solid rgba(255,255,255,.12);
+  border-radius:40px;padding:26px 26px 26px 30px;box-shadow:0 20px 50px rgba(0,0,0,.35);color:#fff;
+  font-family:'Inter',sans-serif;font-weight:600;font-size:44px;line-height:1.2}
+.prm-logo{width:60px;height:60px;flex:none}
+.prm-tx{position:relative;flex:1;min-height:56px}
+.prm-ph{position:absolute;left:0;top:0;opacity:.45}.prm-typed i{font-style:normal;opacity:0}
+.prm-send{width:78px;height:78px;flex:none;align-self:flex-end;border-radius:24px;background:var(--acc);display:flex;
+  align-items:center;justify-content:center}
+.prm-send svg{width:40px;fill:none;stroke:#fff;stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+.note-img{display:block;width:100%}.note-in .note-on{position:absolute;margin:0;padding:0;display:flex;flex-direction:column;justify-content:center}
 .note-paper{position:relative;background:#FFFDF8;border-radius:6px;padding:56px 46px 56px 110px;min-height:200px}
 .note.lined .note-paper{background:repeating-linear-gradient(#FFFDF8 0 calc(var(--lh) - 2px),#CBD7F1 calc(var(--lh) - 2px) var(--lh)) 0 calc(56px + var(--lh) * 0.18)/100% 100%,#FFFDF8}
 .note.pink .note-paper{background:#FFF6F8;box-shadow:0 0 0 26px #F9C9D8,0 0 0 26px #F9C9D8}
@@ -1079,6 +1146,8 @@ def main():
             ins_anim(c, it)
         elif t == 'scene':
             ins_scene(c, it)
+        elif t == 'prompt':
+            ins_prompt(c, it)
         elif t == 'light':
             pass   # baked into the a-roll below (lit_aroll)
         elif t == 'handle':

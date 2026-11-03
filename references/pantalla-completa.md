@@ -19,6 +19,7 @@ Todos los `times` / `t` son segundos del reel: hacé coincidir cada aparición c
 | kind | Campos | Para |
 |---|---|---|
 | `chat` | `title` (nombre del contacto), `subtitle`, `messages`: `[{"from": "me"/"them", "text", "time", "t"}]` | "le responde al cliente", "me escribe", una conversación |
+| `upload` | `title`, `logo` (`"claude"`: el asterisco naranja en vez del punto), `files`: `[{"src", "dur"}]` (miniaturas, p. ej. cuadros del propio video), `prompt`, `reply`, `times`: `{"files": [...], "type", "send", "reply"}` | "subo los clips y le pongo...": un chat de IA donde caen los archivos, se escribe el pedido, se envía y responde |
 | `calendar` | `title`, `days` (default Lun-Vie), `slots` (default 4), `busy`, `free` (`[día, franja]`), `times` | reuniones, agenda, huecos libres, turnos |
 | `checklist` | `title`, `items`, `tags` (uno por item, opcional: "Alta"), `times` (cuándo se tilda cada uno) | pendientes, tareas, pasos, "me los organiza" |
 | `stat` | `value`, `prefix`, `suffix`, `label`, `countFor` (s, default 1) | un número que pega: "258 mensajes", "3x más", "$0" |
