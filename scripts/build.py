@@ -41,7 +41,9 @@ import stickers  # noqa: E402
 import common  # noqa: E402
 
 W, H, SAFE = common.W, common.H, common.SAFE
-SFX_BASE = {'pop': 0.32, 'click': 0.45, 'ding': 0.22, 'rise': 0.25, 'bass': 0.4, 'whoosh': 0.3}
+SFX_BASE = {'pop': 0.32, 'click': 0.45, 'ding': 0.22, 'rise': 0.25, 'bass': 0.4, 'whoosh': 0.3,
+            'whoosh-blow': 0.3, 'whoosh-simple': 0.3, 'swoosh': 0.3, 'riser-short': 0.25, 'riser-long': 0.2,
+            'typing': 0.3, 'camera': 0.4, 'mouse-click': 0.4}
 
 
 _SFX_LEN = {}

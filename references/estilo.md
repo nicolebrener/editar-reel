@@ -66,6 +66,7 @@ pasa de verde a amarillo a violeta se ve como un cambalache.
 
 ## Sonido
 Sintetizados por `setup.py` (propios, libres para compartir): `pop`, `click`, `ding`, `rise`, `bass`, `whoosh`.
+Descargados (Pixabay): `whoosh-blow`, `whoosh-simple`, `swoosh`, `riser-short`, `riser-long`, `typing`, `camera`, `mouse-click`.
 Por defecto: pop en destacados y tarjetas, whoosh en títulos y b-roll a pantalla completa, click en texto a mano,
 rise + click + ding en la tarjeta de perfil. Volumen general en `reel.json` `sfx.gain`.
 
